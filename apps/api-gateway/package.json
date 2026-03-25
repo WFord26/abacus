@@ -1,8 +1,24 @@
 {
   "name": "@wford26/accounting-api-gateway",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": true,
+  "scripts": {
+    "build": "tsc -p tsconfig.json --noEmit false --outDir dist",
+    "dev": "tsx watch src/main.ts",
+    "start": "node dist/main.js",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@fastify/cors": "^10.0.2",
+    "@fastify/helmet": "^13.0.1",
+    "@fastify/rate-limit": "^10.3.0",
+    "@wford26/auth-sdk": "workspace:*",
+    "fastify": "^4.28.1"
+  },
   "devDependencies": {
-    "@wford26/config-typescript": "workspace:*"
+    "@types/node": "^24.5.2",
+    "@wford26/config-typescript": "workspace:*",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.2"
   }
 }

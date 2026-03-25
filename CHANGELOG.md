@@ -8,6 +8,16 @@ Versioning: CalVer YYYY.MM.DD
 
 ### Added
 
+### Changed
+
+### Fixed
+
+### Removed
+
+## [2026.03.25.1]
+
+### Added
+
 - T-012: Auth SDK package with JWT helpers, Fastify auth plugin, and role-based pre-handler guard exports.
 - T-013: Prisma service scaffolding for identity, ledger, documents, reporting, and invoicing services, including schema files, initial SQL migrations, and Fastify database plugins.
 - T-030: API gateway scaffold with Fastify security plugins, normalized error handling, health checks, and service proxy routing.

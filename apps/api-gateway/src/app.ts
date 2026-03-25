@@ -6,7 +6,7 @@ import {
   type AuthError,
   type FastifyAuthPluginOptions,
 } from "@wford26/auth-sdk";
-import Fastify, { type FastifyInstance, type FastifyRequest } from "fastify";
+import Fastify, { type FastifyReply, type FastifyRequest } from "fastify";
 
 type ServiceName = "identity" | "ledger" | "documents" | "reporting" | "invoicing";
 
@@ -144,7 +144,7 @@ function getProxyHeaders(request: FastifyRequest) {
   return headers;
 }
 
-async function proxyRequest(request: FastifyRequest, reply: FastifyInstance["reply"]) {
+async function proxyRequest(request: FastifyRequest, reply: FastifyReply) {
   const config = getConfig();
   const wildcard = ((request.params as { "*": string })["*"] ?? "").replace(/^\/+/, "");
   const serviceName = getServiceNameFromPath(wildcard);
@@ -178,11 +178,17 @@ async function proxyRequest(request: FastifyRequest, reply: FastifyInstance["rep
     upstreamUrl.search = query;
   }
 
-  const upstreamResponse = await fetch(upstreamUrl, {
+  const proxyBody = getProxyBody(request);
+  const requestInit: RequestInit = {
     method: request.method,
     headers: getProxyHeaders(request),
-    body: getProxyBody(request),
-  });
+  };
+
+  if (proxyBody !== undefined) {
+    requestInit.body = proxyBody;
+  }
+
+  const upstreamResponse = await fetch(upstreamUrl, requestInit);
 
   const setCookie =
     "getSetCookie" in upstreamResponse.headers &&

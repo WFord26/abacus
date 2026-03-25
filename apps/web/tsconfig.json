@@ -1,7 +1,14 @@
 {
   "extends": "@wford26/config-typescript/nextjs",
   "compilerOptions": {
-    "baseUrl": "."
+    "baseUrl": ".",
+    "incremental": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ]
   },
-  "include": ["src/**/*", "app/**/*", "components/**/*", "next-env.d.ts"]
+  "include": ["src/**/*", "app/**/*", "components/**/*", "next-env.d.ts", ".next/types/**/*.ts"],
+  "exclude": ["node_modules"]
 }

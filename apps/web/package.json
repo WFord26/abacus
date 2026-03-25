@@ -2,9 +2,30 @@
   "name": "@wford26/accounting-web",
   "version": "2026.03.25",
   "private": true,
+  "scripts": {
+    "build": "next build",
+    "dev": "next dev --port 3007",
+    "start": "next start --port 3007",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "^5.79.0",
+    "@wford26/design-tokens": "workspace:*",
+    "@wford26/shared-types": "workspace:*",
+    "@wford26/ui": "workspace:*",
+    "next": "^14.2.28",
+    "next-themes": "^0.4.4",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
   "devDependencies": {
     "@wford26/config-typescript": "workspace:*",
-    "@wford26/design-tokens": "link:../../packages/design-tokens",
-    "@wford26/ui": "link:../../packages/ui"
+    "@types/node": "^24.5.2",
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.2",
+    "autoprefixer": "^10.4.21",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5.8.2"
   }
 }

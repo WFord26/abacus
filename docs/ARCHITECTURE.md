@@ -1252,7 +1252,7 @@ Use this checklist to track implementation progress across the architecture plan
    - `packages/config-eslint`
    - `packages/config-typescript`
 
-5. Root `.gitignore`, `.npmrc` (with `shamefully-hoist=false`), `README.md`
+5. Root `.gitignore`, `.npmrc` if needed for workspace-specific package-manager settings, and `README.md`
 
 **Acceptance criteria:**
 

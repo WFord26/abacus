@@ -11,7 +11,7 @@ import {
   Label,
 } from "@wford26/ui";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { startTransition, useState } from "react";
 
 import { useAuth } from "../../../src/contexts/auth-context";
@@ -19,7 +19,6 @@ import { useAuth } from "../../../src/contexts/auth-context";
 export default function LoginPage() {
   const { error, isLoading, login } = useAuth();
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [form, setForm] = useState({
     email: "",
     password: "",
@@ -30,8 +29,13 @@ export default function LoginPage() {
 
     try {
       await login(form.email, form.password);
+      const nextPath =
+        typeof window === "undefined"
+          ? "/"
+          : (new URLSearchParams(window.location.search).get("next") ?? "/");
+
       startTransition(() => {
-        router.replace(searchParams.get("next") ?? "/");
+        router.replace(nextPath);
       });
     } catch {
       // Surface the provider error state in the UI.

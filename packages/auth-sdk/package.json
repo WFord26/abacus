@@ -1,4 +1,28 @@
 {
   "name": "@wford26/auth-sdk",
-  "version": "0.1.0"
+  "version": "0.1.0",
+  "private": true,
+  "sideEffects": false,
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@wford26/shared-types": "workspace:*",
+    "fastify-plugin": "^4.5.1",
+    "jsonwebtoken": "^9.0.2"
+  },
+  "peerDependencies": {
+    "fastify": "^4.0.0 || ^5.0.0"
+  },
+  "devDependencies": {
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/node": "^24.5.2",
+    "@wford26/config-typescript": "workspace:*",
+    "fastify": "^4.28.1",
+    "typescript": "^5.8.2"
+  }
 }

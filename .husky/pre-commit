@@ -1,2 +1,2 @@
 #!/usr/bin/env sh
-#pnpm lint:staged
+npx --yes pnpm exec lint-staged --allow-empty
