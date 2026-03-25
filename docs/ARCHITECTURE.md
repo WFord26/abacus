@@ -1159,11 +1159,11 @@ Use this checklist to track implementation progress across the architecture plan
 - [ ] T-031 — API Gateway — Identity Service Routing
 - [ ] T-040 — Web App Scaffold
 - [ ] T-041 — Web — Auth Pages (Sign In, Sign Up, Org Setup)
-- [ ] T-042 — Web — Shell Layout (Nav, Sidebar, Org Context)
+- [x] T-042 — Web — Shell Layout (Nav, Sidebar, Org Context)
 
 #### Ledger & Transactions
 
-- [ ] T-050 — Ledger Service — Accounts CRUD
+- [x] T-050 — Ledger Service — Accounts CRUD
 - [ ] T-051 — Ledger Service — Categories CRUD
 - [ ] T-052 — Ledger Service — Manual Transaction Entry
 - [ ] T-053 — Ledger Service — CSV Import Pipeline

@@ -69,6 +69,7 @@ export function AppShell({
 }>) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const {
+    hasResolvedOrganizations,
     isLoading,
     isOrganizationsLoading,
     logout,
@@ -114,6 +115,7 @@ export function AppShell({
 
     return `${pendingMemberships.length} pending invite${pendingMemberships.length === 1 ? "" : "s"}`;
   }, [pendingMemberships.length]);
+  const isOrganizationStatePending = Boolean(user) && !hasResolvedOrganizations;
 
   useEffect(() => {
     setIsSidebarOpen(false);
@@ -133,9 +135,6 @@ export function AppShell({
 
     try {
       await switchOrganization(value);
-      startTransition(() => {
-        router.refresh();
-      });
     } catch {
       // Surface provider errors through the shared auth state.
     }
@@ -190,7 +189,9 @@ export function AppShell({
               {organization?.name ?? "Workspace pending"}
             </p>
             <div className="mt-3 flex flex-wrap gap-2">
-              {activeRoleLabel ? (
+              {isOrganizationStatePending ? (
+                <Badge variant="secondary">Syncing workspace</Badge>
+              ) : activeRoleLabel ? (
                 <Badge variant="secondary">{activeRoleLabel}</Badge>
               ) : (
                 <Badge variant="warning">Setup required</Badge>
@@ -328,7 +329,7 @@ export function AppShell({
                   <p className="text-xs uppercase tracking-[0.22em] text-neutral-600 dark:text-neutral-400">
                     Workspace switcher
                   </p>
-                  {isOrganizationsLoading ? (
+                  {isOrganizationStatePending || isOrganizationsLoading ? (
                     <span className="text-xs text-neutral-600 dark:text-neutral-400">
                       Syncing workspaces...
                     </span>
@@ -336,7 +337,7 @@ export function AppShell({
                 </div>
                 {activeMemberships.length > 0 ? (
                   <Select
-                    disabled={isLoading || isOrganizationsLoading}
+                    disabled={isLoading || isOrganizationsLoading || isOrganizationStatePending}
                     value={activeOrganizationId}
                     onValueChange={handleOrganizationChange}
                   >
@@ -351,6 +352,10 @@ export function AppShell({
                       ))}
                     </SelectContent>
                   </Select>
+                ) : isOrganizationStatePending ? (
+                  <div className="mt-2 rounded-2xl border border-dashed border-neutral-300 px-4 py-3 text-sm text-neutral-700 dark:border-neutral-700 dark:text-neutral-300">
+                    Loading workspace memberships...
+                  </div>
                 ) : (
                   <div className="mt-2 rounded-2xl border border-dashed border-neutral-300 px-4 py-3 text-sm text-neutral-700 dark:border-neutral-700 dark:text-neutral-300">
                     No active workspace yet. Create one in setup or accept an invite first.
@@ -370,7 +375,7 @@ export function AppShell({
           </header>
 
           <main className="min-h-[70vh] rounded-[2rem]">
-            {activeMemberships.length === 0 ? (
+            {activeMemberships.length === 0 && !isOrganizationStatePending ? (
               <div className="glass-panel rise-in mb-4 rounded-[2rem] border-0 px-5 py-5">
                 <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                   <div>

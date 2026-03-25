@@ -14,6 +14,7 @@ Versioning: CalVer YYYY.MM.DD
 - T-031: API gateway identity-service routing coverage for auth, `/me`, and organization membership requests.
 - T-041: Web auth and onboarding flow for sign-in, registration, first-run workspace setup, and org-aware session handoff.
 - T-042: Authenticated web shell with responsive sidebar, org switcher, pending-invite context, and account controls tied to live org memberships.
+- T-050: Ledger service accounts CRUD with default chart seeding, balance calculation, soft delete safeguards, and integration coverage.
 - Identity bootstrap: one-time first-admin setup endpoints for fresh environments via `/api/v1/auth/bootstrap-status` and `/api/v1/auth/bootstrap-admin`.
 
 ### Changed
@@ -26,6 +27,8 @@ Versioning: CalVer YYYY.MM.DD
 - Stabilization: made `apps/web` typechecking self-sufficient by generating Next build artifacts before `tsc`, fixed the identity-service `start` script to use the actual build output path, and corrected the local Docker Compose stack to use a runnable MinIO image plus conflict-free PostgreSQL and Redis host ports.
 - Developer experience: root `npm run dev` now starts the implemented local stack by reading the root `.env` and launching identity, API gateway, and web together.
 - Web auth: fresh environments now detect bootstrap mode and route users into a dedicated first-admin creation screen automatically.
+- Web shell: organization hydration now shows an explicit syncing state instead of flashing empty-workspace UI, and organization switches no longer force a route refresh.
+- Local stack: the root launcher and env templates now include the ledger service so `/api/v1/accounts` can be exercised through the gateway.
 
 ### Removed
 

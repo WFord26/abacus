@@ -121,11 +121,25 @@ children.push(
 
 children.push(
   startService(
+    "ledger",
+    {
+      DATABASE_URL:
+        fileEnv.LEDGER_DATABASE_URL ??
+        "postgresql://postgres:postgres@localhost:15432/accounting?schema=ledger",
+      JWT_SECRET: fileEnv.JWT_SECRET ?? "development-secret",
+      PORT: fileEnv.LEDGER_PORT ?? "3002",
+    },
+    ["--filter", "@wford26/accounting-ledger-service", "dev"]
+  )
+);
+
+children.push(
+  startService(
     "gateway",
     {
       FRONTEND_ORIGIN: fileEnv.FRONTEND_ORIGIN ?? "http://127.0.0.1:3007",
       IDENTITY_SERVICE_URL: fileEnv.IDENTITY_SERVICE_URL ?? "http://127.0.0.1:3001",
-      LEDGER_SERVICE_URL: fileEnv.LEDGER_SERVICE_URL ?? "",
+      LEDGER_SERVICE_URL: fileEnv.LEDGER_SERVICE_URL ?? "http://127.0.0.1:3002",
       DOCUMENTS_SERVICE_URL: fileEnv.DOCUMENTS_SERVICE_URL ?? "",
       REPORTING_SERVICE_URL: fileEnv.REPORTING_SERVICE_URL ?? "",
       INVOICING_SERVICE_URL: fileEnv.INVOICING_SERVICE_URL ?? "",

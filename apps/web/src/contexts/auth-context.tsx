@@ -49,6 +49,7 @@ type AuthContextValue = {
   clearError: () => void;
   createOrganization: (name: string, businessType?: string) => Promise<Organization>;
   error: string | null;
+  hasResolvedOrganizations: boolean;
   isBootstrapStatusLoading: boolean;
   isLoading: boolean;
   isOrganizationsLoading: boolean;
@@ -84,6 +85,7 @@ export function AuthProvider({
   const [isBootstrapStatusLoading, setIsBootstrapStatusLoading] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
   const [isOrganizationsLoading, setIsOrganizationsLoading] = useState(false);
+  const [hasResolvedOrganizations, setHasResolvedOrganizations] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -136,10 +138,12 @@ export function AuthProvider({
   const refreshOrganizations = useCallback(async () => {
     if (!getStoredAccessToken()) {
       setOrganizations([]);
+      setHasResolvedOrganizations(true);
       return;
     }
 
     setIsOrganizationsLoading(true);
+    setHasResolvedOrganizations(false);
 
     try {
       const memberships = await apiClient<MembershipWithOrganization[]>("/organizations", {
@@ -151,6 +155,7 @@ export function AuthProvider({
       setOrganizations([]);
     } finally {
       setIsOrganizationsLoading(false);
+      setHasResolvedOrganizations(true);
     }
   }, []);
 
@@ -158,6 +163,7 @@ export function AuthProvider({
     if (!user) {
       setOrganizations([]);
       setIsOrganizationsLoading(false);
+      setHasResolvedOrganizations(true);
       void refreshBootstrapStatus();
       return;
     }
@@ -179,6 +185,7 @@ export function AuthProvider({
       });
 
       await applySession(session);
+      setHasResolvedOrganizations(false);
       setBootstrapAvailable(false);
       await refreshOrganizations();
     } catch (caughtError) {
@@ -201,6 +208,7 @@ export function AuthProvider({
       });
 
       await applySession(session);
+      setHasResolvedOrganizations(false);
       setBootstrapAvailable(false);
       await refreshOrganizations();
     } catch (caughtError) {
@@ -225,6 +233,7 @@ export function AuthProvider({
       });
 
       await applySession(session);
+      setHasResolvedOrganizations(false);
       setBootstrapAvailable(false);
       setIsBootstrapStatusLoading(false);
       await refreshOrganizations();
@@ -251,6 +260,7 @@ export function AuthProvider({
       });
 
       await applySession(session);
+      setHasResolvedOrganizations(false);
       await refreshOrganizations();
       return session.organization;
     } catch (caughtError) {
@@ -310,6 +320,7 @@ export function AuthProvider({
         setOrganization(null);
         setOrganizations([]);
         setBootstrapAvailable(false);
+        setHasResolvedOrganizations(false);
         setIsBootstrapStatusLoading(true);
         setError(null);
         setIsLoading(false);
@@ -324,6 +335,7 @@ export function AuthProvider({
       clearError,
       createOrganization,
       error,
+      hasResolvedOrganizations,
       isBootstrapStatusLoading,
       isLoading,
       isOrganizationsLoading,
@@ -342,6 +354,7 @@ export function AuthProvider({
       clearError,
       createOrganization,
       error,
+      hasResolvedOrganizations,
       isBootstrapStatusLoading,
       isLoading,
       isOrganizationsLoading,

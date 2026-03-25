@@ -811,20 +811,54 @@ Change a member role. `owner` and `admin` may manage roles, but `admin` cannot a
 
 **Public base**: `/api/v1`
 
+#### GET /api/v1/accounts
+
+List all active accounts for the authenticated organization.
+
+**Authentication**: Required
+
+**Response: 200 OK**:
+
+```typescript
+{
+  data: Array<{
+    id: string;
+    organizationId: string;
+    name: string;
+    type: "cash" | "credit" | "expense" | "income" | "liability" | "equity";
+    code: string | null;
+    isActive: boolean;
+    createdAt: string;
+  }>;
+}
+```
+
+**Notes**:
+
+- If the organization has never had accounts before, the first `GET /accounts` seeds:
+  `Checking Account`, `Credit Card`, `General Expenses`, and `Revenue`
+
+**Error Responses**:
+
+- `401 Unauthorized`: Missing or invalid token
+
+---
+
 #### POST /api/v1/accounts
 
 Create a new account for the authenticated organization.
 
 **Authentication**: Required
 
+**Authorization**: `owner`, `admin`, or `accountant`
+
 **Request**:
 
 ```typescript
 {
-  name: string (max 100 chars)
-  accountType: 'checking' | 'savings' | 'credit' | 'other'
-  currency: string (3-letter code, e.g., 'USD')
-  initialBalance?: number
+  name: string
+  type: 'cash' | 'credit' | 'expense' | 'income' | 'liability' | 'equity'
+  code?: string | null
 }
 ```
 
@@ -833,46 +867,77 @@ Create a new account for the authenticated organization.
 ```typescript
 {
   data: {
-    id: string (UUID)
-    organizationId: string (UUID)
-    name: string
-    accountType: 'checking' | 'savings' | 'credit' | 'other'
-    currency: string
-    balance: number
-    createdAt: string (ISO 8601)
-    updatedAt: string (ISO 8601)
+    id: string;
+    organizationId: string;
+    name: string;
+    type: "cash" | "credit" | "expense" | "income" | "liability" | "equity";
+    code: string | null;
+    isActive: boolean;
+    createdAt: string;
   }
 }
 ```
 
 **Error Responses**:
 
-- `400 Bad Request`: Validation error (invalid currency code, empty name, etc.)
+- `400 Bad Request`: Validation error
 - `401 Unauthorized`: Missing or invalid token
-- `500 Internal Server Error`: Unexpected server error
+- `403 Forbidden`: Caller lacks a mutation-capable role
 
 ---
 
-#### GET /api/v1/accounts
+#### PATCH /api/v1/accounts/:accountId
 
-List all accounts for the authenticated organization.
+Update an account's `name` and or `code`.
 
 **Authentication**: Required
 
-**Query Parameters**:
+**Authorization**: `owner`, `admin`, or `accountant`
 
-- `limit` (optional): Number of results (default: 50, max: 500)
-- `offset` (optional): Pagination offset (default: 0)
+**Path Parameters**:
+
+- `accountId` (required): UUID of the account
+
+**Request**:
+
+```typescript
+{
+  name?: string
+  code?: string | null
+}
+```
+
+**Response: 200 OK**:
+
+Same response shape as `POST /api/v1/accounts`.
+
+**Error Responses**:
+
+- `400 Bad Request`: Validation error
+- `401 Unauthorized`: Missing or invalid token
+- `403 Forbidden`: Caller lacks a mutation-capable role
+- `404 Not Found`: Account does not exist or is inactive
+
+---
+
+#### DELETE /api/v1/accounts/:accountId
+
+Soft-delete an account by setting `isActive` to `false`.
+
+**Authentication**: Required
+
+**Authorization**: `owner`, `admin`, or `accountant`
+
+**Path Parameters**:
+
+- `accountId` (required): UUID of the account
 
 **Response: 200 OK**:
 
 ```typescript
 {
-  data: Account[],
-  pagination: {
-    total: number
-    limit: number
-    offset: number
+  data: {
+    deleted: true;
   }
 }
 ```
@@ -880,12 +945,15 @@ List all accounts for the authenticated organization.
 **Error Responses**:
 
 - `401 Unauthorized`: Missing or invalid token
+- `403 Forbidden`: Caller lacks a mutation-capable role
+- `404 Not Found`: Account does not exist or is inactive
+- `409 Conflict`: Account has associated transactions
 
 ---
 
-#### GET /api/v1/accounts/:accountId
+#### GET /api/v1/accounts/:accountId/balance
 
-Retrieve a specific account by ID.
+Compute the current balance for an account from ledger transactions.
 
 **Authentication**: Required
 
@@ -898,22 +966,23 @@ Retrieve a specific account by ID.
 ```typescript
 {
   data: {
-    id: string (UUID)
-    organizationId: string (UUID)
-    name: string
-    accountType: 'checking' | 'savings' | 'credit' | 'other'
-    currency: string
-    balance: number
-    createdAt: string (ISO 8601)
-    updatedAt: string (ISO 8601)
+    accountId: string;
+    balance: number;
+    currency: "USD";
+    asOf: string;
   }
 }
 ```
 
+**Notes**:
+
+- `cash`, `expense`, `income`, `liability`, and `equity` accounts use the summed transaction amount
+- `credit` accounts return the absolute value of the summed transaction amount
+
 **Error Responses**:
 
 - `401 Unauthorized`: Missing or invalid token
-- `404 Not Found`: Account does not exist or does not belong to user's organization
+- `404 Not Found`: Account does not exist or is inactive
 
 ---
 
