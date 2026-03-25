@@ -1,0 +1,17 @@
+{
+  "name": "@wford26/event-contracts",
+  "version": "0.1.0",
+  "private": true,
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@wford26/shared-types": "link:../shared-types"
+  },
+  "devDependencies": {
+    "@types/node": "^24.5.2",
+    "@wford26/config-typescript": "workspace:*",
+    "typescript": "^5.8.2"
+  }
+}

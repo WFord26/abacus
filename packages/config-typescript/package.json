@@ -1,0 +1,10 @@
+{
+  "name": "@wford26/config-typescript",
+  "version": "0.1.0",
+  "private": true,
+  "exports": {
+    "./base": "./tsconfig.base.json",
+    "./nextjs": "./tsconfig.nextjs.json",
+    "./node": "./tsconfig.node.json"
+  }
+}

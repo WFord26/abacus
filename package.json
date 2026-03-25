@@ -1,0 +1,39 @@
+{
+  "name": "abacus",
+  "version": "2026.03.25",
+  "private": true,
+  "packageManager": "pnpm@10.6.5",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "test": "turbo run test",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "release:track": "node scripts/release-manager.mjs track",
+    "version:bump": "node scripts/release-manager.mjs release",
+    "version:bump:dry": "node scripts/release-manager.mjs release --dry-run",
+    "prepare": "husky",
+    "lint:staged": "lint-staged"
+  },
+  "devDependencies": {
+    "eslint": "^9.23.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^15.5.0",
+    "prettier": "^3.5.3",
+    "turbo": "^2.5.0",
+    "typescript": "^5.8.2"
+  },
+  "lint-staged": {
+    "*.{js,cjs,mjs,ts,tsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,md,yaml,yml}": [
+      "prettier --write"
+    ]
+  }
+}

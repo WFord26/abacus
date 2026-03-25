@@ -1,0 +1,11 @@
+{
+  "extends": "@wford26/config-typescript/base",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "noEmit": true,
+    "target": "ES2022"
+  },
+  "include": ["src/**/*"]
+}

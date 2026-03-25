@@ -1,0 +1,74 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: abacus-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: accounting
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d accounting"]
+      interval: 5s
+      timeout: 5s
+      retries: 6
+      start_period: 5s
+
+  redis:
+    image: redis:7-alpine
+    container_name: abacus-redis
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 6
+      start_period: 5s
+
+  minio:
+    image: bitnami/minio:2025
+    container_name: abacus-minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+      MINIO_DEFAULT_BUCKETS: accounting-documents
+      MINIO_CONSOLE_PORT_NUMBER: 9001
+    volumes:
+      - minio-data:/bitnami/minio/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://127.0.0.1:9000/minio/health/live || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
+
+  mailhog:
+    image: mailhog/mailhog:v1.0.1
+    container_name: abacus-mailhog
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider -q http://127.0.0.1:8025 || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 6
+      start_period: 5s
+
+volumes:
+  postgres-data:
+    name: abacus-postgres-data
+  redis-data:
+    name: abacus-redis-data
+  minio-data:
+    name: abacus-minio-data

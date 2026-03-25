@@ -1,0 +1,254 @@
+{
+  "generatedAt": "2026-03-25T15:11:18.483Z",
+  "baseRef": "4b825dc642cb6eb9a060e54bf8d69288fbee4904",
+  "rootVersion": "2026.03.25",
+  "backendBumpLevel": "patch",
+  "fileStructure": {
+    "added": [
+      ".eslintignore",
+      ".github/instructions/copilot-instructions.md.instructions.md",
+      ".github/workflows/ci.yml",
+      ".github/workflows/deploy-services.yml",
+      ".github/workflows/deploy-web.yml",
+      ".github/workflows/publish-packages.yml",
+      ".gitignore",
+      ".husky/pre-commit",
+      ".npmrc",
+      ".prettierignore",
+      ".prettierrc.json",
+      "CHANGELOG.md",
+      "README.md",
+      "apps/api-gateway/package.json",
+      "apps/api-gateway/tsconfig.json",
+      "apps/documents-service/package.json",
+      "apps/documents-service/tsconfig.json",
+      "apps/expenses-service/package.json",
+      "apps/expenses-service/tsconfig.json",
+      "apps/identity-service/package.json",
+      "apps/identity-service/tsconfig.json",
+      "apps/invoicing-service/package.json",
+      "apps/invoicing-service/tsconfig.json",
+      "apps/ledger-service/package.json",
+      "apps/ledger-service/tsconfig.json",
+      "apps/reporting-service/package.json",
+      "apps/reporting-service/tsconfig.json",
+      "apps/web/package.json",
+      "apps/web/tailwind.config.ts",
+      "apps/web/tsconfig.json",
+      "docs/ARCHITECTURE.md",
+      "docs/accounting_platform_service_architecture.svg",
+      "docs/accounting_platform_task_dependency_tiers.svg",
+      "infrastructure/docker/docker-compose.yml",
+      "package.json",
+      "packages/auth-sdk/package.json",
+      "packages/config-eslint/index.js",
+      "packages/config-eslint/next.js",
+      "packages/config-eslint/package.json",
+      "packages/config-typescript/base.json",
+      "packages/config-typescript/nextjs.json",
+      "packages/config-typescript/node.json",
+      "packages/config-typescript/package.json",
+      "packages/config-typescript/tsconfig.base.json",
+      "packages/config-typescript/tsconfig.nextjs.json",
+      "packages/config-typescript/tsconfig.node.json",
+      "packages/design-tokens/package.json",
+      "packages/design-tokens/src/index.ts",
+      "packages/design-tokens/src/tailwind-preset.ts",
+      "packages/design-tokens/src/tokens.ts",
+      "packages/design-tokens/tsconfig.json",
+      "packages/event-contracts/package.json",
+      "packages/event-contracts/src/events.ts",
+      "packages/event-contracts/src/index.ts",
+      "packages/event-contracts/tsconfig.json",
+      "packages/shared-types/package.json",
+      "packages/shared-types/src/api.ts",
+      "packages/shared-types/src/documents.ts",
+      "packages/shared-types/src/identity.ts",
+      "packages/shared-types/src/index.ts",
+      "packages/shared-types/src/invoicing.ts",
+      "packages/shared-types/src/ledger.ts",
+      "packages/shared-types/src/reporting.ts",
+      "packages/shared-types/tsconfig.json",
+      "packages/ui/package.json",
+      "packages/ui/src/components/avatar.tsx",
+      "packages/ui/src/components/badge.tsx",
+      "packages/ui/src/components/button.tsx",
+      "packages/ui/src/components/card.tsx",
+      "packages/ui/src/components/dialog.tsx",
+      "packages/ui/src/components/dropdown.tsx",
+      "packages/ui/src/components/input.tsx",
+      "packages/ui/src/components/label.tsx",
+      "packages/ui/src/components/select.tsx",
+      "packages/ui/src/components/skeleton.tsx",
+      "packages/ui/src/components/table.tsx",
+      "packages/ui/src/components/tabs.tsx",
+      "packages/ui/src/components/toast.tsx",
+      "packages/ui/src/index.ts",
+      "packages/ui/src/lib/utils.ts",
+      "packages/ui/tsconfig.json",
+      "pnpm-lock.yaml",
+      "pnpm-workspace.yaml",
+      "release-tracking/2026.03.25.json",
+      "release-tracking/latest.json",
+      "scripts/release-manager.mjs",
+      "scripts/release-manager.test.mjs",
+      "turbo.json"
+    ],
+    "modified": [],
+    "deleted": [],
+    "renamed": []
+  },
+  "backendBumps": [
+    {
+      "appName": "api-gateway",
+      "packageName": "@wford26/accounting-api-gateway",
+      "path": "apps/api-gateway/package.json",
+      "previousVersion": "0.1.1",
+      "nextVersion": "0.1.2"
+    },
+    {
+      "appName": "documents-service",
+      "packageName": "@wford26/accounting-documents-service",
+      "path": "apps/documents-service/package.json",
+      "previousVersion": "0.1.1",
+      "nextVersion": "0.1.2"
+    },
+    {
+      "appName": "expenses-service",
+      "packageName": "@wford26/accounting-expenses-service",
+      "path": "apps/expenses-service/package.json",
+      "previousVersion": "0.1.1",
+      "nextVersion": "0.1.2"
+    },
+    {
+      "appName": "identity-service",
+      "packageName": "@wford26/accounting-identity-service",
+      "path": "apps/identity-service/package.json",
+      "previousVersion": "0.1.1",
+      "nextVersion": "0.1.2"
+    },
+    {
+      "appName": "invoicing-service",
+      "packageName": "@wford26/accounting-invoicing-service",
+      "path": "apps/invoicing-service/package.json",
+      "previousVersion": "0.1.1",
+      "nextVersion": "0.1.2"
+    },
+    {
+      "appName": "ledger-service",
+      "packageName": "@wford26/accounting-ledger-service",
+      "path": "apps/ledger-service/package.json",
+      "previousVersion": "0.1.1",
+      "nextVersion": "0.1.2"
+    },
+    {
+      "appName": "reporting-service",
+      "packageName": "@wford26/accounting-reporting-service",
+      "path": "apps/reporting-service/package.json",
+      "previousVersion": "0.1.1",
+      "nextVersion": "0.1.2"
+    }
+  ],
+  "commandChanges": [
+    {
+      "file": ".github/workflows/ci.yml",
+      "kind": "workflow-run",
+      "added": ["pnpm install --frozen-lockfile", "pnpm turbo run lint typecheck build test"],
+      "removed": []
+    },
+    {
+      "file": ".github/workflows/deploy-services.yml",
+      "kind": "workflow-run",
+      "added": [
+        "pnpm install --frozen-lockfile",
+        "pnpm turbo run build --affected --filter='./apps/*' --dry=json > turbo-affected.json || echo '{\"tasks\":[]}' > turbo-affected.json\nSERVICES=$(jq -cr '\n[.tasks[]?.package\n| select(startswith(\"@wford26/accounting-\"))\n| select(. != \"@wford26/accounting-web\")\n| sub(\"^@wford26/accounting-\"; \"\")\n] | unique\n' turbo-affected.json)\necho \"services=${SERVICES}\" >> \"$GITHUB_OUTPUT\""
+      ],
+      "removed": []
+    },
+    {
+      "file": ".github/workflows/deploy-web.yml",
+      "kind": "workflow-run",
+      "added": [
+        "pnpm install --frozen-lockfile",
+        "npx vercel pull --yes --environment=production --token=\"${VERCEL_TOKEN}\"",
+        "npx vercel deploy --prod --token=\"${VERCEL_TOKEN}\""
+      ],
+      "removed": []
+    },
+    {
+      "file": ".github/workflows/publish-packages.yml",
+      "kind": "workflow-run",
+      "added": [
+        "if find .changeset -maxdepth 1 -name '*.md' ! -name 'README.md' -print -quit | grep -q .; then\necho \"has_changesets=true\" >> \"$GITHUB_OUTPUT\"\nelse\necho \"has_changesets=false\" >> \"$GITHUB_OUTPUT\"\nfi",
+        "pnpm install --frozen-lockfile"
+      ],
+      "removed": []
+    },
+    {
+      "file": ".husky/pre-commit",
+      "kind": "hook-command",
+      "added": ["pnpm lint:staged"],
+      "removed": []
+    },
+    {
+      "file": "infrastructure/docker/docker-compose.yml",
+      "kind": "compose-command",
+      "added": [
+        "test: [\"CMD-SHELL\", \"pg_isready -U postgres -d accounting\"]",
+        "command: [\"redis-server\", \"--appendonly\", \"yes\"]",
+        "test: [\"CMD\", \"redis-cli\", \"ping\"]",
+        "test: [\"CMD-SHELL\", \"curl -f http://127.0.0.1:9000/minio/health/live || exit 1\"]",
+        "test: [\"CMD-SHELL\", \"wget --spider -q http://127.0.0.1:8025 || exit 1\"]"
+      ],
+      "removed": []
+    },
+    {
+      "file": "package.json",
+      "kind": "package-scripts",
+      "added": [
+        {
+          "name": "build",
+          "command": "turbo run build"
+        },
+        {
+          "name": "dev",
+          "command": "turbo run dev"
+        },
+        {
+          "name": "lint",
+          "command": "turbo run lint"
+        },
+        {
+          "name": "lint:staged",
+          "command": "lint-staged"
+        },
+        {
+          "name": "prepare",
+          "command": "husky"
+        },
+        {
+          "name": "release:track",
+          "command": "node scripts/release-manager.mjs track"
+        },
+        {
+          "name": "test",
+          "command": "turbo run test"
+        },
+        {
+          "name": "typecheck",
+          "command": "turbo run typecheck"
+        },
+        {
+          "name": "version:bump",
+          "command": "node scripts/release-manager.mjs release"
+        },
+        {
+          "name": "version:bump:dry",
+          "command": "node scripts/release-manager.mjs release --dry-run"
+        }
+      ],
+      "changed": [],
+      "removed": []
+    }
+  ]
+}

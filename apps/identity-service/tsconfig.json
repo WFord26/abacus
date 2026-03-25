@@ -1,0 +1,7 @@
+{
+  "extends": "@wford26/config-typescript/node",
+  "compilerOptions": {
+    "baseUrl": "."
+  },
+  "include": ["src/**/*", "test/**/*"]
+}

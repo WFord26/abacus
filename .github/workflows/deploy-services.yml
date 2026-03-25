@@ -1,0 +1,89 @@
+name: Deploy Services
+
+on:
+  workflow_run:
+    workflows:
+      - CI
+    types:
+      - completed
+
+jobs:
+  detect-affected-services:
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main'
+    runs-on: ubuntu-latest
+    outputs:
+      services: ${{ steps.detect.outputs.services }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.6.5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Detect affected services with Turborepo
+        id: detect
+        shell: bash
+        env:
+          TURBO_SCM_BASE: ${{ github.event.workflow_run.head_sha }}^
+          TURBO_SCM_HEAD: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          pnpm turbo run build --affected --filter='./apps/*' --dry=json > turbo-affected.json || echo '{"tasks":[]}' > turbo-affected.json
+
+          SERVICES=$(jq -cr '
+            [.tasks[]?.package
+              | select(startswith("@wford26/accounting-"))
+              | select(. != "@wford26/accounting-web")
+              | sub("^@wford26/accounting-"; "")
+            ] | unique
+          ' turbo-affected.json)
+
+          echo "services=${SERVICES}" >> "$GITHUB_OUTPUT"
+
+  deploy-services:
+    runs-on: ubuntu-latest
+    needs: detect-affected-services
+    if: needs.detect-affected-services.outputs.services != '[]'
+    strategy:
+      fail-fast: false
+      matrix:
+        service: ${{ fromJson(needs.detect-affected-services.outputs.services) }}
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GHCR_TOKEN }}
+
+      - name: Build and push service image
+        if: hashFiles(format('apps/{0}/Dockerfile', matrix.service)) != ''
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/${{ matrix.service }}/Dockerfile
+          push: true
+          tags: ghcr.io/wford26/${{ matrix.service }}:${{ github.event.workflow_run.head_sha }}

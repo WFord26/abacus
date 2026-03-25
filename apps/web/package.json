@@ -1,0 +1,10 @@
+{
+  "name": "@wford26/accounting-web",
+  "version": "2026.03.25",
+  "private": true,
+  "devDependencies": {
+    "@wford26/config-typescript": "workspace:*",
+    "@wford26/design-tokens": "link:../../packages/design-tokens",
+    "@wford26/ui": "link:../../packages/ui"
+  }
+}

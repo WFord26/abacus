@@ -1,0 +1,7 @@
+{
+  "extends": "@wford26/config-typescript/nextjs",
+  "compilerOptions": {
+    "baseUrl": "."
+  },
+  "include": ["src/**/*"]
+}
