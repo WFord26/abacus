@@ -1,0 +1,99 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Account {
+  id                     String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId         String                  @map("organization_id") @db.Uuid
+  name                   String
+  type                   String
+  code                   String?
+  isActive               Boolean                 @default(true) @map("is_active")
+  createdAt              DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+  transactions           Transaction[]
+  reconciliationSessions ReconciliationSession[]
+
+  @@map("accounts")
+}
+
+model Category {
+  id                 String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId     String          @map("organization_id") @db.Uuid
+  name               String
+  parentId           String?         @map("parent_id") @db.Uuid
+  color              String?
+  isActive           Boolean         @default(true) @map("is_active")
+  parent             Category?       @relation("CategoryTree", fields: [parentId], references: [id])
+  children           Category[]      @relation("CategoryTree")
+  transactions       Transaction[]
+  transactionLines   TransactionLine[]
+
+  @@map("categories")
+}
+
+model Transaction {
+  id             String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String              @map("organization_id") @db.Uuid
+  accountId      String?             @map("account_id") @db.Uuid
+  date           DateTime            @db.Date
+  amount         Decimal             @db.Decimal(15, 2)
+  description    String?
+  merchantRaw    String?             @map("merchant_raw")
+  categoryId     String?             @map("category_id") @db.Uuid
+  reviewStatus   String              @default("unreviewed") @map("review_status")
+  importBatchId  String?             @map("import_batch_id") @db.Uuid
+  isSplit        Boolean             @default(false) @map("is_split")
+  createdBy      String              @map("created_by") @db.Uuid
+  createdAt      DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  account        Account?            @relation(fields: [accountId], references: [id])
+  category       Category?           @relation(fields: [categoryId], references: [id])
+  lines          TransactionLine[]
+
+  @@map("transactions")
+}
+
+model TransactionLine {
+  id             String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  transactionId  String?      @map("transaction_id") @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  amount         Decimal      @db.Decimal(15, 2)
+  categoryId     String?      @map("category_id") @db.Uuid
+  description    String?
+  transaction    Transaction? @relation(fields: [transactionId], references: [id])
+  category       Category?    @relation(fields: [categoryId], references: [id])
+
+  @@map("transaction_lines")
+}
+
+model ImportBatch {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  filename       String?
+  rowCount       Int?     @map("row_count")
+  importedCount  Int?     @map("imported_count")
+  duplicateCount Int?     @map("duplicate_count")
+  status         String   @default("pending")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@map("import_batches")
+}
+
+model ReconciliationSession {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId   String    @map("organization_id") @db.Uuid
+  accountId        String?   @map("account_id") @db.Uuid
+  statementDate    DateTime? @map("statement_date") @db.Date
+  statementBalance Decimal?  @map("statement_balance") @db.Decimal(15, 2)
+  status           String    @default("in_progress")
+  completedAt      DateTime? @map("completed_at") @db.Timestamptz(6)
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  account          Account?  @relation(fields: [accountId], references: [id])
+
+  @@map("reconciliation_sessions")
+}

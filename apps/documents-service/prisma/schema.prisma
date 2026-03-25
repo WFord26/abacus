@@ -1,0 +1,37 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Document {
+  id              String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId  String            @map("organization_id") @db.Uuid
+  uploadedBy      String            @map("uploaded_by") @db.Uuid
+  filename        String
+  contentType     String            @map("content_type")
+  sizeBytes       BigInt?           @map("size_bytes")
+  s3Key           String            @map("s3_key")
+  s3Bucket        String            @map("s3_bucket")
+  checksum        String?
+  ocrStatus       String            @default("pending") @map("ocr_status")
+  createdAt       DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  transactionLinks TransactionLink[]
+
+  @@map("documents")
+}
+
+model TransactionLink {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  documentId     String?  @map("document_id") @db.Uuid
+  transactionId  String   @map("transaction_id") @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  linkedBy       String   @map("linked_by") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  document       Document? @relation(fields: [documentId], references: [id])
+
+  @@map("transaction_links")
+}

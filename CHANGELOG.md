@@ -8,7 +8,15 @@ Versioning: CalVer YYYY.MM.DD
 
 ### Added
 
+- T-012: Auth SDK package with JWT helpers, Fastify auth plugin, and role-based pre-handler guard exports.
+- T-013: Prisma service scaffolding for identity, ledger, documents, reporting, and invoicing services, including schema files, initial SQL migrations, and Fastify database plugins.
+- T-030: API gateway scaffold with Fastify security plugins, normalized error handling, health checks, and service proxy routing.
+- T-040: Next.js web scaffold with App Router, React Query, auth context, theme provider, and responsive shell layouts.
+
 ### Changed
+
+- T-003: Re-enabled the Husky pre-commit hook so lint-staged runs before commits again.
+- T-003: Updated the Husky pre-commit hook to use `npx --yes pnpm` so commits work even when `pnpm` is not on `PATH`.
 
 ### Fixed
 

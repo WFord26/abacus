@@ -1,0 +1,32 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model MetricAggregate {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  metricKey      String   @map("metric_key")
+  period         String
+  value          Decimal? @db.Decimal(15, 2)
+  metadata       Json?
+  computedAt     DateTime @default(now()) @map("computed_at") @db.Timestamptz(6)
+
+  @@unique([organizationId, metricKey, period])
+  @@map("metric_aggregates")
+}
+
+model ReportSnapshot {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  reportType     String   @map("report_type")
+  period         String
+  data           Json
+  generatedAt    DateTime @default(now()) @map("generated_at") @db.Timestamptz(6)
+
+  @@map("report_snapshots")
+}
