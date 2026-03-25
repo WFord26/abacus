@@ -1,7 +1,9 @@
 import { requireRole } from "@wford26/auth-sdk";
 
+import { LedgerServiceError } from "../../lib/errors";
 import { success } from "../../lib/response";
 import { parseSchema } from "../../lib/validation";
+import { importTransactionsCsvFieldsSchema } from "../../schemas/import-batches.schema";
 import {
   createTransactionBodySchema,
   listTransactionsQuerySchema,
@@ -9,15 +11,55 @@ import {
   updateTransactionBodySchema,
 } from "../../schemas/transactions.schema";
 
+import type { LedgerImportBatchesService } from "../../services/import-batches.service";
 import type { LedgerTransactionsService } from "../../services/transactions.service";
 import type { TransactionFilters } from "@wford26/shared-types";
-import type { FastifyPluginAsync } from "fastify";
+import type { FastifyPluginAsync, FastifyRequest } from "fastify";
 
 type TransactionsRoutesOptions = {
+  importService: LedgerImportBatchesService;
   service: LedgerTransactionsService;
 };
 
 const mutateRoles = ["owner", "admin", "accountant"] as const;
+
+async function parseCsvImportRequest(request: FastifyRequest) {
+  let accountId: string | undefined;
+  let content: string | undefined;
+  let filename: string | undefined;
+
+  for await (const part of request.parts()) {
+    if (part.type === "file") {
+      if (part.fieldname !== "file") {
+        continue;
+      }
+
+      filename = part.filename;
+      content = (await part.toBuffer()).toString("utf8");
+      continue;
+    }
+
+    if (part.fieldname === "accountId") {
+      accountId = String(part.value);
+    }
+  }
+
+  const fields = parseSchema(importTransactionsCsvFieldsSchema, {
+    accountId,
+  });
+
+  if (!content) {
+    throw new LedgerServiceError("VALIDATION_ERROR", "CSV file is required", 400, {
+      path: "file",
+    });
+  }
+
+  return {
+    accountId: fields.accountId,
+    content,
+    ...(filename ? { filename } : {}),
+  };
+}
 
 const transactionsRoutes: FastifyPluginAsync<TransactionsRoutesOptions> = async (
   fastify,
@@ -44,6 +86,26 @@ const transactionsRoutes: FastifyPluginAsync<TransactionsRoutesOptions> = async 
 
     return success(transactions);
   });
+
+  fastify.post(
+    "/transactions/import/csv",
+    {
+      preHandler: requireRole([...mutateRoles]),
+    },
+    async (request, reply) => {
+      const upload = await parseCsvImportRequest(request);
+      const batch = await options.importService.importTransactionsCsv({
+        accountId: upload.accountId,
+        content: upload.content,
+        createdBy: request.user!.userId,
+        ...(upload.filename !== undefined ? { filename: upload.filename } : {}),
+        organizationId: request.user!.organizationId,
+      });
+
+      reply.status(201);
+      return success(batch);
+    }
+  );
 
   fastify.post(
     "/transactions",

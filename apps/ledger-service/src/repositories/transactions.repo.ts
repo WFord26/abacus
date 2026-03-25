@@ -29,6 +29,12 @@ type TransactionRepositoryRecord = TransactionRecord & {
   isActive: boolean;
 };
 
+export type TransactionDuplicateCandidate = {
+  amount: number;
+  date: string;
+  description: string | null;
+};
+
 export type LedgerTransactionRepository = {
   createTransaction(input: {
     accountId: string;
@@ -37,9 +43,15 @@ export type LedgerTransactionRepository = {
     createdBy: string;
     date: string;
     description?: string | null;
+    importBatchId?: string | null;
     merchantRaw?: string | null;
     organizationId: string;
   }): Promise<Transaction>;
+  findTransactionsByDuplicateCandidates(input: {
+    accountId: string;
+    candidates: TransactionDuplicateCandidate[];
+    organizationId: string;
+  }): Promise<Transaction[]>;
   findTransactionById(
     transactionId: string,
     organizationId: string
@@ -185,6 +197,7 @@ export function createPrismaLedgerTransactionRepository(
         organizationId: input.organizationId,
         ...(input.categoryId !== undefined ? { categoryId: input.categoryId } : {}),
         ...(input.description !== undefined ? { description: input.description } : {}),
+        ...(input.importBatchId !== undefined ? { importBatchId: input.importBatchId } : {}),
         ...(input.merchantRaw !== undefined ? { merchantRaw: input.merchantRaw } : {}),
       };
       const transaction = await db.transaction.create({
@@ -192,6 +205,31 @@ export function createPrismaLedgerTransactionRepository(
       });
 
       return toListedTransaction(toTransactionRecord(transaction));
+    },
+
+    async findTransactionsByDuplicateCandidates({ accountId, candidates, organizationId }) {
+      if (candidates.length === 0) {
+        return [];
+      }
+
+      const transactions = await db.transaction.findMany({
+        where: {
+          accountId,
+          isActive: true,
+          organizationId,
+          OR: candidates.map((candidate) => ({
+            amount: new Prisma.Decimal(candidate.amount),
+            date: new Date(`${candidate.date}T00:00:00.000Z`),
+            ...(candidate.description === null
+              ? { description: null }
+              : { description: candidate.description }),
+          })),
+        },
+      });
+
+      return transactions.map((transaction) =>
+        toListedTransaction(toTransactionRecord(transaction))
+      );
     },
 
     async findTransactionById(transactionId, organizationId) {

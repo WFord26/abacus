@@ -75,12 +75,17 @@ model TransactionLine {
 model ImportBatch {
   id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   organizationId String   @map("organization_id") @db.Uuid
+  accountId      String   @map("account_id") @db.Uuid
+  createdBy      String   @map("created_by") @db.Uuid
   filename       String?
-  rowCount       Int?     @map("row_count")
-  importedCount  Int?     @map("imported_count")
-  duplicateCount Int?     @map("duplicate_count")
+  rowCount       Int      @default(0) @map("row_count")
+  importedCount  Int      @default(0) @map("imported_count")
+  duplicateCount Int      @default(0) @map("duplicate_count")
+  errorCount     Int      @default(0) @map("error_count")
   status         String   @default("pending")
+  rowResults     Json     @default("[]") @map("row_results")
   createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   @@map("import_batches")
 }

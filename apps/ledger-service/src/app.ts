@@ -1,3 +1,4 @@
+import multipart from "@fastify/multipart";
 import rateLimit from "@fastify/rate-limit";
 import { fastifyAuthPlugin, type AuthError } from "@wford26/auth-sdk";
 import Fastify from "fastify";
@@ -14,14 +15,20 @@ import {
   type LedgerCategoryRepository,
 } from "./repositories/categories.repo";
 import {
+  createPrismaLedgerImportBatchRepository,
+  type LedgerImportBatchRepository,
+} from "./repositories/import-batches.repo";
+import {
   createPrismaLedgerTransactionRepository,
   type LedgerTransactionRepository,
 } from "./repositories/transactions.repo";
 import accountsRoutes from "./routes/v1/accounts.routes";
 import categoriesRoutes from "./routes/v1/categories.routes";
+import importBatchesRoutes from "./routes/v1/import-batches.routes";
 import transactionsRoutes from "./routes/v1/transactions.routes";
 import { createLedgerAccountsService } from "./services/accounts.service";
 import { createLedgerCategoriesService } from "./services/categories.service";
+import { createLedgerImportBatchesService } from "./services/import-batches.service";
 import { createLedgerTransactionsService } from "./services/transactions.service";
 
 import type { LedgerEventPublisher } from "./lib/events";
@@ -32,6 +39,7 @@ export type BuildLedgerServiceOptions = {
   categoryRepository?: LedgerCategoryRepository;
   db?: PrismaClient;
   eventPublisher?: LedgerEventPublisher;
+  importBatchRepository?: LedgerImportBatchRepository;
   jwtSecret?: string;
   transactionRepository?: LedgerTransactionRepository;
 };
@@ -112,6 +120,26 @@ function getTransactionRepository(
   throw new Error("A transaction repository or database connection is required");
 }
 
+function getImportBatchRepository(
+  repositoryOverride: LedgerImportBatchRepository | undefined,
+  dbOverride: PrismaClient | undefined,
+  appDb: PrismaClient | undefined
+) {
+  if (repositoryOverride) {
+    return repositoryOverride;
+  }
+
+  if (dbOverride) {
+    return createPrismaLedgerImportBatchRepository(dbOverride);
+  }
+
+  if (appDb) {
+    return createPrismaLedgerImportBatchRepository(appDb);
+  }
+
+  throw new Error("An import batch repository or database connection is required");
+}
+
 export function buildLedgerServiceApp(options: BuildLedgerServiceOptions = {}) {
   const app = Fastify({
     logger: true,
@@ -120,12 +148,14 @@ export function buildLedgerServiceApp(options: BuildLedgerServiceOptions = {}) {
   if (
     !options.accountRepository &&
     !options.categoryRepository &&
+    !options.importBatchRepository &&
     !options.transactionRepository &&
     !options.db
   ) {
     app.register(databasePlugin);
   }
 
+  app.register(multipart);
   app.register(rateLimit);
   const authPluginOptions = {
     formatError: (error: AuthError) => buildErrorResponse(error),
@@ -150,6 +180,11 @@ export function buildLedgerServiceApp(options: BuildLedgerServiceOptions = {}) {
       options.db,
       appDb
     );
+    const importBatchRepository = getImportBatchRepository(
+      options.importBatchRepository,
+      options.db,
+      appDb
+    );
     const eventPublisher =
       options.eventPublisher ??
       (process.env.REDIS_URL
@@ -163,6 +198,12 @@ export function buildLedgerServiceApp(options: BuildLedgerServiceOptions = {}) {
       categoryRepository,
       eventPublisher
     );
+    const importBatchesService = createLedgerImportBatchesService(
+      importBatchRepository,
+      transactionRepository,
+      accountRepository,
+      eventPublisher
+    );
 
     fastify.register(accountsRoutes, {
       service: accountsService,
@@ -173,7 +214,12 @@ export function buildLedgerServiceApp(options: BuildLedgerServiceOptions = {}) {
     });
 
     fastify.register(transactionsRoutes, {
+      importService: importBatchesService,
       service: transactionsService,
+    });
+
+    fastify.register(importBatchesRoutes, {
+      service: importBatchesService,
     });
   });
 

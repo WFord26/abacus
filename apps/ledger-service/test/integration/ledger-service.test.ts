@@ -9,6 +9,7 @@ import { buildLedgerServiceApp } from "../../src/app";
 import type { LedgerEventPublisher } from "../../src/lib/events";
 import type { LedgerAccountRepository } from "../../src/repositories/accounts.repo";
 import type { LedgerCategoryRepository } from "../../src/repositories/categories.repo";
+import type { LedgerImportBatchRepository } from "../../src/repositories/import-batches.repo";
 import type { LedgerTransactionRepository } from "../../src/repositories/transactions.repo";
 import type { AbacusEvent } from "@wford26/event-contracts";
 import type {
@@ -16,6 +17,9 @@ import type {
   AccountType,
   Category,
   CategoryTreeNode,
+  ImportBatch,
+  ImportBatchDetail,
+  ImportBatchRowResult,
   Role,
   Transaction,
   TransactionFilters,
@@ -27,6 +31,7 @@ type RepoState = {
   accounts: Map<string, Account>;
   categories: Map<string, Category>;
   categoryAssignmentCounts: Map<string, number>;
+  importBatches: Map<string, StoredImportBatch>;
   publishedEvents: AbacusEvent[];
   transactionCounts: Map<string, number>;
   transactionSums: Map<string, number>;
@@ -50,6 +55,8 @@ type StoredTransaction = {
   reviewStatus: Transaction["reviewStatus"];
   updatedAt: string;
 };
+
+type StoredImportBatch = ImportBatchDetail;
 
 function createAccountRecord(input: {
   code?: string | null;
@@ -340,6 +347,10 @@ function createTransactionRecord(input: {
 }
 
 function createTransactionRepository(state: RepoState): LedgerTransactionRepository {
+  function buildDuplicateKey(input: { amount: number; date: string; description: string | null }) {
+    return JSON.stringify([input.date, input.amount, input.description ?? null]);
+  }
+
   function adjustAccountStats(accountId: string, amountDelta: number, countDelta: number) {
     state.transactionCounts.set(
       accountId,
@@ -418,6 +429,33 @@ function createTransactionRepository(state: RepoState): LedgerTransactionReposit
       adjustAccountStats(transaction.accountId, transaction.amount, 1);
       adjustCategoryStats(transaction.categoryId ?? null, 1);
       return toTransaction(transaction);
+    },
+
+    async findTransactionsByDuplicateCandidates({ accountId, candidates, organizationId }) {
+      const duplicateKeys = new Set(
+        candidates.map((candidate) =>
+          buildDuplicateKey({
+            amount: candidate.amount,
+            date: candidate.date,
+            description: candidate.description,
+          })
+        )
+      );
+
+      return [...state.transactions.values()]
+        .filter((transaction) => transaction.organizationId === organizationId)
+        .filter((transaction) => transaction.accountId === accountId)
+        .filter((transaction) => transaction.isActive)
+        .filter((transaction) =>
+          duplicateKeys.has(
+            buildDuplicateKey({
+              amount: transaction.amount,
+              date: transaction.date,
+              description: transaction.description,
+            })
+          )
+        )
+        .map(toTransaction);
     },
 
     async findTransactionById(transactionId, organizationId) {
@@ -501,6 +539,113 @@ function createTransactionRepository(state: RepoState): LedgerTransactionReposit
   };
 }
 
+function createImportBatchRecord(input: {
+  accountId: string;
+  createdAt?: string;
+  createdBy: string;
+  duplicateCount?: number;
+  errorCount?: number;
+  filename?: string | null;
+  id?: string;
+  importedCount?: number;
+  organizationId: string;
+  rowCount?: number;
+  rows?: ImportBatchRowResult[];
+  status?: ImportBatch["status"];
+  updatedAt?: string;
+}): StoredImportBatch {
+  return {
+    accountId: input.accountId,
+    createdAt: input.createdAt ?? new Date().toISOString(),
+    createdBy: input.createdBy,
+    duplicateCount: input.duplicateCount ?? 0,
+    errorCount: input.errorCount ?? 0,
+    filename: input.filename ?? null,
+    id: input.id ?? randomUUID(),
+    importedCount: input.importedCount ?? 0,
+    organizationId: input.organizationId,
+    rowCount: input.rowCount ?? 0,
+    rows: input.rows ?? [],
+    status: input.status ?? "processing",
+    updatedAt: input.updatedAt ?? new Date().toISOString(),
+  };
+}
+
+function createImportBatchRepository(state: RepoState): LedgerImportBatchRepository {
+  return {
+    async createImportBatch(input) {
+      const batch = createImportBatchRecord(input);
+      state.importBatches.set(batch.id, batch);
+      return {
+        accountId: batch.accountId,
+        createdAt: batch.createdAt,
+        createdBy: batch.createdBy,
+        duplicateCount: batch.duplicateCount,
+        errorCount: batch.errorCount,
+        filename: batch.filename,
+        id: batch.id,
+        importedCount: batch.importedCount,
+        organizationId: batch.organizationId,
+        rowCount: batch.rowCount,
+        status: batch.status,
+        updatedAt: batch.updatedAt,
+      };
+    },
+
+    async findImportBatchById(batchId, organizationId) {
+      const batch = state.importBatches.get(batchId);
+
+      if (!batch || batch.organizationId !== organizationId) {
+        return null;
+      }
+
+      return batch;
+    },
+
+    async listImportBatches(organizationId) {
+      return [...state.importBatches.values()]
+        .filter((batch) => batch.organizationId === organizationId)
+        .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
+        .map((batch) => ({
+          accountId: batch.accountId,
+          createdAt: batch.createdAt,
+          createdBy: batch.createdBy,
+          duplicateCount: batch.duplicateCount,
+          errorCount: batch.errorCount,
+          filename: batch.filename,
+          id: batch.id,
+          importedCount: batch.importedCount,
+          organizationId: batch.organizationId,
+          rowCount: batch.rowCount,
+          status: batch.status,
+          updatedAt: batch.updatedAt,
+        }));
+    },
+
+    async updateImportBatch(batchId, organizationId, input) {
+      const batch = state.importBatches.get(batchId);
+
+      if (!batch || batch.organizationId !== organizationId) {
+        throw new Error("Import batch not found");
+      }
+
+      const updated = {
+        ...batch,
+        duplicateCount: input.duplicateCount,
+        errorCount: input.errorCount,
+        importedCount: input.importedCount,
+        rowCount: input.rowCount,
+        rows: input.rows,
+        status: input.status,
+        updatedAt: new Date().toISOString(),
+      };
+
+      state.importBatches.set(batchId, updated);
+      return updated;
+    },
+  };
+}
+
 function createEventPublisher(state: RepoState): LedgerEventPublisher {
   return {
     async publish(event) {
@@ -533,6 +678,7 @@ describe("ledger-service T-050 accounts CRUD", () => {
       accounts: new Map(),
       categories: new Map(),
       categoryAssignmentCounts: new Map(),
+      importBatches: new Map(),
       publishedEvents: [],
       transactionCounts: new Map(),
       transactionSums: new Map(),
@@ -543,6 +689,7 @@ describe("ledger-service T-050 accounts CRUD", () => {
       accountRepository: createRepository(state),
       categoryRepository: createCategoryRepository(state),
       eventPublisher: createEventPublisher(state),
+      importBatchRepository: createImportBatchRepository(state),
       jwtSecret: JWT_SECRET,
       transactionRepository: createTransactionRepository(state),
     });
@@ -730,6 +877,7 @@ describe("ledger-service T-051 categories CRUD", () => {
       accounts: new Map(),
       categories: new Map(),
       categoryAssignmentCounts: new Map(),
+      importBatches: new Map(),
       publishedEvents: [],
       transactionCounts: new Map(),
       transactionSums: new Map(),
@@ -740,6 +888,7 @@ describe("ledger-service T-051 categories CRUD", () => {
       accountRepository: createRepository(state),
       categoryRepository: createCategoryRepository(state),
       eventPublisher: createEventPublisher(state),
+      importBatchRepository: createImportBatchRepository(state),
       jwtSecret: JWT_SECRET,
       transactionRepository: createTransactionRepository(state),
     });
@@ -940,6 +1089,7 @@ describe("ledger-service T-052 transactions CRUD", () => {
       accounts: new Map(),
       categories: new Map(),
       categoryAssignmentCounts: new Map(),
+      importBatches: new Map(),
       publishedEvents: [],
       transactionCounts: new Map(),
       transactionSums: new Map(),
@@ -950,6 +1100,7 @@ describe("ledger-service T-052 transactions CRUD", () => {
       accountRepository: createRepository(state),
       categoryRepository: createCategoryRepository(state),
       eventPublisher: createEventPublisher(state),
+      importBatchRepository: createImportBatchRepository(state),
       jwtSecret: JWT_SECRET,
       transactionRepository: createTransactionRepository(state),
     });
@@ -1399,5 +1550,222 @@ describe("ledger-service T-052 transactions CRUD", () => {
     expect(listByForeignCategory.body.error.code).toBe("CATEGORY_NOT_FOUND");
     expect(listByForeignAccount.status).toBe(404);
     expect(listByForeignAccount.body.error.code).toBe("ACCOUNT_NOT_FOUND");
+  });
+});
+
+describe("ledger-service T-053 CSV import pipeline", () => {
+  let app: ReturnType<typeof buildLedgerServiceApp>;
+  let state: RepoState;
+  let organizationId: string;
+
+  beforeEach(async () => {
+    organizationId = randomUUID();
+    state = {
+      accounts: new Map(),
+      categories: new Map(),
+      categoryAssignmentCounts: new Map(),
+      importBatches: new Map(),
+      publishedEvents: [],
+      transactionCounts: new Map(),
+      transactionSums: new Map(),
+      transactions: new Map(),
+    };
+
+    app = buildLedgerServiceApp({
+      accountRepository: createRepository(state),
+      categoryRepository: createCategoryRepository(state),
+      eventPublisher: createEventPublisher(state),
+      importBatchRepository: createImportBatchRepository(state),
+      jwtSecret: JWT_SECRET,
+      transactionRepository: createTransactionRepository(state),
+    });
+
+    await app.ready();
+  });
+
+  afterEach(async () => {
+    await app.close();
+  });
+
+  it("imports CSV rows, flags duplicates, and stores batch row results", async () => {
+    const account = createAccountRecord({
+      name: "Operating Checking",
+      organizationId,
+      type: "cash",
+    });
+    const existingTransaction = createTransactionRecord({
+      accountId: account.id,
+      amount: 10.5,
+      createdBy: randomUUID(),
+      date: "2026-03-01",
+      description: "Coffee",
+      organizationId,
+    });
+    const token = createAccessToken(organizationId, "accountant");
+    const csv = [
+      "Date,Amount,Description",
+      "2026-03-01,10.50,Coffee",
+      "3/2/2026,42.10,Lunch",
+      "2026-03-03,0,Skip me",
+      "2026-03-04,invalid,Wrong amount",
+      "2026-03-02,42.10,Lunch",
+      "2026-03-05,-20.00,Refund",
+    ].join("\n");
+
+    state.accounts.set(account.id, account);
+    state.transactions.set(existingTransaction.id, existingTransaction);
+    state.transactionCounts.set(account.id, 1);
+    state.transactionSums.set(account.id, existingTransaction.amount);
+
+    const importResponse = await request(app.server)
+      .post("/transactions/import/csv")
+      .set("Authorization", `Bearer ${token}`)
+      .field("accountId", account.id)
+      .attach("file", Buffer.from(csv, "utf8"), {
+        contentType: "text/csv",
+        filename: "transactions.csv",
+      });
+
+    expect(importResponse.status).toBe(201);
+    expect(importResponse.body.data.accountId).toBe(account.id);
+    expect(importResponse.body.data.filename).toBe("transactions.csv");
+    expect(importResponse.body.data.rowCount).toBe(6);
+    expect(importResponse.body.data.importedCount).toBe(2);
+    expect(importResponse.body.data.duplicateCount).toBe(2);
+    expect(importResponse.body.data.errorCount).toBe(1);
+    expect(importResponse.body.data.status).toBe("completed");
+    expect(importResponse.body.data.rows.map((row: ImportBatchRowResult) => row.status)).toEqual([
+      "duplicate",
+      "imported",
+      "skipped",
+      "error",
+      "duplicate",
+      "imported",
+    ]);
+    expect(state.transactionCounts.get(account.id)).toBe(3);
+    expect(state.transactionSums.get(account.id)).toBe(32.6);
+    expect(state.publishedEvents).toHaveLength(2);
+
+    const listResponse = await request(app.server)
+      .get("/import-batches")
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(listResponse.status).toBe(200);
+    expect(listResponse.body.data).toHaveLength(1);
+    expect(listResponse.body.data[0].id).toBe(importResponse.body.data.id);
+
+    const detailResponse = await request(app.server)
+      .get(`/import-batches/${importResponse.body.data.id}`)
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(detailResponse.status).toBe(200);
+    expect(detailResponse.body.data.rows).toHaveLength(6);
+    expect(detailResponse.body.data.rows[1].date).toBe("2026-03-02");
+    expect(detailResponse.body.data.rows[3].message).toBe("Amount is required");
+  });
+
+  it("supports debit and credit split bank exports", async () => {
+    const account = createAccountRecord({
+      name: "Checking",
+      organizationId,
+      type: "cash",
+    });
+    const token = createAccessToken(organizationId, "admin");
+    const csv = [
+      "Posting Date,Description,Debit,Credit",
+      "3/10/2026,Office Supplies,15.25,",
+      "3/11/2026,Client Payment,,250.00",
+    ].join("\n");
+
+    state.accounts.set(account.id, account);
+
+    const response = await request(app.server)
+      .post("/transactions/import/csv")
+      .set("Authorization", `Bearer ${token}`)
+      .field("accountId", account.id)
+      .attach("file", Buffer.from(csv, "utf8"), {
+        contentType: "text/csv",
+        filename: "bank-export.csv",
+      });
+
+    expect(response.status).toBe(201);
+    expect(response.body.data.importedCount).toBe(2);
+    expect(response.body.data.rows[0].amount).toBe(-15.25);
+    expect(response.body.data.rows[1].amount).toBe(250);
+  });
+
+  it("blocks viewer imports but still allows batch reads", async () => {
+    const account = createAccountRecord({
+      name: "Checking",
+      organizationId,
+      type: "cash",
+    });
+    const batch = createImportBatchRecord({
+      accountId: account.id,
+      createdBy: randomUUID(),
+      filename: "existing.csv",
+      importedCount: 1,
+      organizationId,
+      rowCount: 1,
+      rows: [
+        {
+          amount: 50,
+          date: "2026-03-01",
+          description: "Imported",
+          message: null,
+          rowNumber: 2,
+          status: "imported",
+          transactionId: randomUUID(),
+        },
+      ],
+      status: "completed",
+    });
+    const token = createAccessToken(organizationId, "viewer");
+
+    state.accounts.set(account.id, account);
+    state.importBatches.set(batch.id, batch);
+
+    const listResponse = await request(app.server)
+      .get("/import-batches")
+      .set("Authorization", `Bearer ${token}`);
+    const detailResponse = await request(app.server)
+      .get(`/import-batches/${batch.id}`)
+      .set("Authorization", `Bearer ${token}`);
+    const importResponse = await request(app.server)
+      .post("/transactions/import/csv")
+      .set("Authorization", `Bearer ${token}`)
+      .field("accountId", account.id)
+      .attach("file", Buffer.from("Date,Amount,Description\n2026-03-01,5,Test", "utf8"), {
+        contentType: "text/csv",
+        filename: "blocked.csv",
+      });
+
+    expect(listResponse.status).toBe(200);
+    expect(detailResponse.status).toBe(200);
+    expect(importResponse.status).toBe(403);
+  });
+
+  it("rejects unsupported CSV formats", async () => {
+    const account = createAccountRecord({
+      name: "Checking",
+      organizationId,
+      type: "cash",
+    });
+    const token = createAccessToken(organizationId, "owner");
+
+    state.accounts.set(account.id, account);
+
+    const response = await request(app.server)
+      .post("/transactions/import/csv")
+      .set("Authorization", `Bearer ${token}`)
+      .field("accountId", account.id)
+      .attach("file", Buffer.from("When,What\n2026-03-01,No amount", "utf8"), {
+        contentType: "text/csv",
+        filename: "bad.csv",
+      });
+
+    expect(response.status).toBe(400);
+    expect(response.body.error.code).toBe("INVALID_CSV_FORMAT");
+    expect(state.importBatches.size).toBe(0);
   });
 });

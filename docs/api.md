@@ -1352,6 +1352,144 @@ Soft-delete a transaction.
 
 ---
 
+#### POST /api/v1/transactions/import/csv
+
+Upload a CSV file and synchronously import matching rows into a ledger account.
+
+**Authentication**: Required
+
+**Authorization**: `owner`, `admin`, or `accountant`
+
+**Request**: `multipart/form-data`
+
+- `accountId` (required): UUID of the destination account
+- `file` (required): CSV file upload
+
+**Supported CSV formats**:
+
+- Generic columns: `Date`, `Amount`, `Description`
+- Bank-style split columns: `Posting Date`, `Description`, `Debit`, `Credit`
+- Date formats: `YYYY-MM-DD`, `MM/DD/YYYY`, `M/D/YYYY`
+
+**Response: 201 Created**:
+
+```typescript
+{
+  data: {
+    id: string (UUID)
+    organizationId: string (UUID)
+    accountId: string (UUID)
+    createdBy: string (UUID)
+    filename: string | null
+    rowCount: number
+    importedCount: number
+    duplicateCount: number
+    errorCount: number
+    status: 'processing' | 'completed' | 'failed'
+    createdAt: string (ISO 8601)
+    updatedAt: string (ISO 8601)
+    rows: Array<{
+      rowNumber: number
+      status: 'imported' | 'duplicate' | 'error' | 'skipped'
+      date: string | null
+      amount: number | null
+      description: string | null
+      message: string | null
+      transactionId: string | null
+    }>
+  }
+}
+```
+
+**Error Responses**:
+
+- `400 Bad Request`: Missing file, missing `accountId`, or unsupported CSV format
+- `401 Unauthorized`: Missing or invalid token
+- `403 Forbidden`: Caller lacks a mutation-capable role
+- `404 Not Found`: Account does not exist in the caller's organization
+
+---
+
+#### GET /api/v1/import-batches
+
+List import batches for the authenticated organization.
+
+**Authentication**: Required
+
+**Response: 200 OK**:
+
+```typescript
+{
+  data: Array<{
+    id: string (UUID)
+    organizationId: string (UUID)
+    accountId: string (UUID)
+    createdBy: string (UUID)
+    filename: string | null
+    rowCount: number
+    importedCount: number
+    duplicateCount: number
+    errorCount: number
+    status: 'processing' | 'completed' | 'failed'
+    createdAt: string (ISO 8601)
+    updatedAt: string (ISO 8601)
+  }>
+}
+```
+
+**Error Responses**:
+
+- `401 Unauthorized`: Missing or invalid token
+
+---
+
+#### GET /api/v1/import-batches/:importBatchId
+
+Return a single import batch with row-level import results.
+
+**Authentication**: Required
+
+**Path Parameters**:
+
+- `importBatchId` (required): UUID of the import batch
+
+**Response: 200 OK**:
+
+```typescript
+{
+  data: {
+    id: string (UUID)
+    organizationId: string (UUID)
+    accountId: string (UUID)
+    createdBy: string (UUID)
+    filename: string | null
+    rowCount: number
+    importedCount: number
+    duplicateCount: number
+    errorCount: number
+    status: 'processing' | 'completed' | 'failed'
+    createdAt: string (ISO 8601)
+    updatedAt: string (ISO 8601)
+    rows: Array<{
+      rowNumber: number
+      status: 'imported' | 'duplicate' | 'error' | 'skipped'
+      date: string | null
+      amount: number | null
+      description: string | null
+      message: string | null
+      transactionId: string | null
+    }>
+  }
+}
+```
+
+**Error Responses**:
+
+- `401 Unauthorized`: Missing or invalid token
+- `404 Not Found`: Import batch does not exist in the caller's organization
+
+---
+
 ### Documents Service
 
 **Public base**: `/api/v1`

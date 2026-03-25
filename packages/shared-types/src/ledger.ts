@@ -46,6 +46,8 @@ export type Transaction = {
   updatedAt: string;
 };
 
+export type ImportBatchRowStatus = "imported" | "duplicate" | "error" | "skipped";
+
 export type TransactionFilters = {
   accountId?: string;
   amountMax?: number;
@@ -69,6 +71,16 @@ export type TransactionListResponse = {
   };
 };
 
+export type ImportBatchRowResult = {
+  amount: number | null;
+  date: string | null;
+  description: string | null;
+  message: string | null;
+  rowNumber: number;
+  status: ImportBatchRowStatus;
+  transactionId: string | null;
+};
+
 export type TransactionLine = {
   id: string;
   transactionId: string;
@@ -81,13 +93,20 @@ export type TransactionLine = {
 export type ImportBatch = {
   id: string;
   organizationId: string;
-  filename?: string | null;
+  accountId: string;
+  createdBy: string;
+  filename: string | null;
   rowCount: number;
   importedCount: number;
   duplicateCount: number;
-  errorCount?: number;
+  errorCount: number;
   status: ImportBatchStatus;
   createdAt: string;
+  updatedAt: string;
+};
+
+export type ImportBatchDetail = ImportBatch & {
+  rows: ImportBatchRowResult[];
 };
 
 export type ReconciliationSession = {

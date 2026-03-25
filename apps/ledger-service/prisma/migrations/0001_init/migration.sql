@@ -51,12 +51,17 @@ CREATE TABLE IF NOT EXISTS ledger.transaction_lines (
 CREATE TABLE IF NOT EXISTS ledger.import_batches (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id UUID NOT NULL,
+  account_id UUID NOT NULL REFERENCES ledger.accounts(id),
+  created_by UUID NOT NULL,
   filename TEXT,
-  row_count INTEGER,
-  imported_count INTEGER,
-  duplicate_count INTEGER,
+  row_count INTEGER NOT NULL DEFAULT 0,
+  imported_count INTEGER NOT NULL DEFAULT 0,
+  duplicate_count INTEGER NOT NULL DEFAULT 0,
+  error_count INTEGER NOT NULL DEFAULT 0,
   status TEXT DEFAULT 'pending',
-  created_at TIMESTAMPTZ DEFAULT NOW()
+  row_results JSONB NOT NULL DEFAULT '[]'::jsonb,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS ledger.reconciliation_sessions (
