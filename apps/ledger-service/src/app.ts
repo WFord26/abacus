@@ -8,15 +8,22 @@ import {
   createPrismaLedgerAccountRepository,
   type LedgerAccountRepository,
 } from "./repositories/accounts.repo";
+import {
+  createPrismaLedgerCategoryRepository,
+  type LedgerCategoryRepository,
+} from "./repositories/categories.repo";
 import accountsRoutes from "./routes/v1/accounts.routes";
+import categoriesRoutes from "./routes/v1/categories.routes";
 import { createLedgerAccountsService } from "./services/accounts.service";
+import { createLedgerCategoriesService } from "./services/categories.service";
 
 import type { PrismaClient } from "@prisma/client";
 
 export type BuildLedgerServiceOptions = {
+  accountRepository?: LedgerAccountRepository;
+  categoryRepository?: LedgerCategoryRepository;
   db?: PrismaClient;
   jwtSecret?: string;
-  repository?: LedgerAccountRepository;
 };
 
 function buildErrorResponse(error: {
@@ -35,7 +42,7 @@ function buildErrorResponse(error: {
   };
 }
 
-function getRepository(
+function getAccountRepository(
   repositoryOverride: LedgerAccountRepository | undefined,
   dbOverride: PrismaClient | undefined,
   appDb: PrismaClient | undefined
@@ -55,12 +62,32 @@ function getRepository(
   throw new Error("A repository or database connection is required");
 }
 
+function getCategoryRepository(
+  repositoryOverride: LedgerCategoryRepository | undefined,
+  dbOverride: PrismaClient | undefined,
+  appDb: PrismaClient | undefined
+) {
+  if (repositoryOverride) {
+    return repositoryOverride;
+  }
+
+  if (dbOverride) {
+    return createPrismaLedgerCategoryRepository(dbOverride);
+  }
+
+  if (appDb) {
+    return createPrismaLedgerCategoryRepository(appDb);
+  }
+
+  throw new Error("A category repository or database connection is required");
+}
+
 export function buildLedgerServiceApp(options: BuildLedgerServiceOptions = {}) {
   const app = Fastify({
     logger: true,
   });
 
-  if (!options.repository && !options.db) {
+  if (!options.accountRepository && !options.categoryRepository && !options.db) {
     app.register(databasePlugin);
   }
 
@@ -80,11 +107,18 @@ export function buildLedgerServiceApp(options: BuildLedgerServiceOptions = {}) {
   });
 
   app.register(async (fastify) => {
-    const repository = getRepository(options.repository, options.db, options.db ?? fastify.db);
-    const service = createLedgerAccountsService(repository);
+    const appDb = options.db ?? fastify.db;
+    const accountRepository = getAccountRepository(options.accountRepository, options.db, appDb);
+    const categoryRepository = getCategoryRepository(options.categoryRepository, options.db, appDb);
+    const accountsService = createLedgerAccountsService(accountRepository);
+    const categoriesService = createLedgerCategoriesService(categoryRepository);
 
     fastify.register(accountsRoutes, {
-      service,
+      service: accountsService,
+    });
+
+    fastify.register(categoriesRoutes, {
+      service: categoriesService,
     });
   });
 

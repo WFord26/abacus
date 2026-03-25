@@ -986,6 +986,149 @@ Compute the current balance for an account from ledger transactions.
 
 ---
 
+#### GET /api/v1/categories
+
+List all categories for the authenticated organization as a nested tree.
+
+**Authentication**: Required
+
+**Response: 200 OK**:
+
+```typescript
+{
+  data: Array<{
+    id: string;
+    organizationId: string;
+    name: string;
+    parentId: string | null;
+    color: string | null;
+    isActive: boolean;
+    children: CategoryTreeNode[];
+  }>;
+}
+```
+
+**Notes**:
+
+- If the organization has never had categories before, the first `GET /categories` seeds:
+  `Food & Dining`, `Travel`, `Software & Subscriptions`, `Office Supplies`,
+  `Marketing`, `Professional Services`, `Utilities`, `Payroll`, and `Other`
+- `Payroll` is seeded with `isActive: false`
+
+**Error Responses**:
+
+- `401 Unauthorized`: Missing or invalid token
+
+---
+
+#### POST /api/v1/categories
+
+Create a new category for the authenticated organization.
+
+**Authentication**: Required
+
+**Authorization**: `owner`, `admin`, or `accountant`
+
+**Request**:
+
+```typescript
+{
+  name: string
+  color?: string | null
+  parentId?: string | null
+}
+```
+
+**Response: 201 Created**:
+
+```typescript
+{
+  data: {
+    id: string;
+    organizationId: string;
+    name: string;
+    parentId: string | null;
+    color: string | null;
+    isActive: boolean;
+  }
+}
+```
+
+**Error Responses**:
+
+- `400 Bad Request`: Validation error
+- `401 Unauthorized`: Missing or invalid token
+- `403 Forbidden`: Caller lacks a mutation-capable role
+- `404 Not Found`: Parent category does not exist
+
+---
+
+#### PATCH /api/v1/categories/:categoryId
+
+Update a category's `name`, `color`, or `parentId`.
+
+**Authentication**: Required
+
+**Authorization**: `owner`, `admin`, or `accountant`
+
+**Path Parameters**:
+
+- `categoryId` (required): UUID of the category
+
+**Request**:
+
+```typescript
+{
+  name?: string
+  color?: string | null
+  parentId?: string | null
+}
+```
+
+**Response: 200 OK**:
+
+Same response shape as `POST /api/v1/categories`.
+
+**Error Responses**:
+
+- `400 Bad Request`: Validation error or invalid category cycle
+- `401 Unauthorized`: Missing or invalid token
+- `403 Forbidden`: Caller lacks a mutation-capable role
+- `404 Not Found`: Category or parent category does not exist
+
+---
+
+#### DELETE /api/v1/categories/:categoryId
+
+Soft-delete a category by setting `isActive` to `false`.
+
+**Authentication**: Required
+
+**Authorization**: `owner`, `admin`, or `accountant`
+
+**Path Parameters**:
+
+- `categoryId` (required): UUID of the category
+
+**Response: 200 OK**:
+
+```typescript
+{
+  data: {
+    deleted: true;
+  }
+}
+```
+
+**Error Responses**:
+
+- `401 Unauthorized`: Missing or invalid token
+- `403 Forbidden`: Caller lacks a mutation-capable role
+- `404 Not Found`: Category does not exist
+- `409 Conflict`: Category has assigned transactions
+
+---
+
 #### POST /api/v1/transactions
 
 Create a new transaction in an account.

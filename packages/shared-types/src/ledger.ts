@@ -25,6 +25,10 @@ export type Category = {
   isActive: boolean;
 };
 
+export type CategoryTreeNode = Category & {
+  children: CategoryTreeNode[];
+};
+
 export type Transaction = {
   id: string;
   organizationId: string;

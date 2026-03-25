@@ -15,6 +15,7 @@ Versioning: CalVer YYYY.MM.DD
 - T-041: Web auth and onboarding flow for sign-in, registration, first-run workspace setup, and org-aware session handoff.
 - T-042: Authenticated web shell with responsive sidebar, org switcher, pending-invite context, and account controls tied to live org memberships.
 - T-050: Ledger service accounts CRUD with default chart seeding, balance calculation, soft delete safeguards, and integration coverage.
+- T-051: Ledger service category CRUD with one-time default seeding, nested tree responses, parent validation, and delete conflict safeguards.
 - Identity bootstrap: one-time first-admin setup endpoints for fresh environments via `/api/v1/auth/bootstrap-status` and `/api/v1/auth/bootstrap-admin`.
 
 ### Changed
