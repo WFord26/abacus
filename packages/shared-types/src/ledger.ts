@@ -46,6 +46,29 @@ export type Transaction = {
   updatedAt: string;
 };
 
+export type TransactionFilters = {
+  accountId?: string;
+  amountMax?: number;
+  amountMin?: number;
+  categoryId?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  limit: number;
+  page: number;
+  q?: string;
+  status?: ReviewStatus;
+};
+
+export type TransactionListResponse = {
+  data: Transaction[];
+  meta: {
+    hasMore: boolean;
+    limit: number;
+    page: number;
+    total: number;
+  };
+};
+
 export type TransactionLine = {
   id: string;
   transactionId: string;

@@ -1135,6 +1135,8 @@ Create a new transaction in an account.
 
 **Authentication**: Required
 
+**Authorization**: `owner`, `admin`, or `accountant`
+
 **Request**:
 
 ```typescript
@@ -1142,8 +1144,9 @@ Create a new transaction in an account.
   accountId: string (UUID)
   date: string (YYYY-MM-DD format)
   amount: number (non-zero decimal)
-  description?: string (max 500 chars)
-  category?: string (UUID, optional)
+  categoryId?: string (UUID) | null
+  description?: string (max 500 chars) | null
+  merchantRaw?: string (max 255 chars) | null
 }
 ```
 
@@ -1155,11 +1158,15 @@ Create a new transaction in an account.
     id: string (UUID)
     organizationId: string (UUID)
     accountId: string (UUID)
-    date: string (ISO 8601)
+    date: string (YYYY-MM-DD)
     amount: number
     description: string | null
-    category: string (UUID) | null
-    reviewStatus: 'unreviewed' | 'approved' | 'rejected'
+    merchantRaw: string | null
+    categoryId: string (UUID) | null
+    reviewStatus: 'unreviewed' | 'reviewed' | 'flagged'
+    importBatchId: string (UUID) | null
+    isSplit: boolean
+    createdBy: string (UUID)
     createdAt: string (ISO 8601)
     updatedAt: string (ISO 8601)
   }
@@ -1170,8 +1177,8 @@ Create a new transaction in an account.
 
 - `400 Bad Request`: Validation error (invalid date format, zero amount, missing required fields)
 - `401 Unauthorized`: Missing or invalid token
-- `404 Not Found`: Account does not exist or does not belong to user's organization
-- `409 Conflict`: Transaction date is before account creation or conflicts with business rules
+- `403 Forbidden`: Caller lacks a mutation-capable role
+- `404 Not Found`: Account or category does not exist in the caller's organization
 
 ---
 
@@ -1183,21 +1190,29 @@ List transactions with optional filtering.
 
 **Query Parameters**:
 
-- `accountId` (required): UUID of the account to filter by
+- `page` (optional): 1-based page number (default: `1`)
+- `limit` (optional): Number of results per page (default: `50`, max: `100`)
+- `accountId` (optional): UUID of the account to filter by
+- `categoryId` (optional): UUID of the category to filter by
+- `status` (optional): `unreviewed` | `reviewed` | `flagged`
 - `dateFrom` (optional): Start date (YYYY-MM-DD)
 - `dateTo` (optional): End date (YYYY-MM-DD)
-- `limit` (optional): Number of results (default: 50, max: 500)
-- `offset` (optional): Pagination offset (default: 0)
+- `q` (optional): Case-insensitive search against description and merchant text
+- `amountMin` (optional): Inclusive minimum amount
+- `amountMax` (optional): Inclusive maximum amount
 
 **Response: 200 OK**:
 
 ```typescript
 {
-  data: Transaction[],
-  pagination: {
-    total: number
-    limit: number
-    offset: number
+  data: {
+    data: Transaction[],
+    meta: {
+      total: number
+      page: number
+      limit: number
+      hasMore: boolean
+    }
   }
 }
 ```
@@ -1206,14 +1221,57 @@ List transactions with optional filtering.
 
 - `400 Bad Request`: Invalid date format or query parameters
 - `401 Unauthorized`: Missing or invalid token
+- `404 Not Found`: Requested account or category filter does not belong to the caller's organization
+
+---
+
+#### GET /api/v1/transactions/:transactionId
+
+Return a single transaction by id.
+
+**Authentication**: Required
+
+**Path Parameters**:
+
+- `transactionId` (required): UUID of the transaction
+
+**Response: 200 OK**:
+
+```typescript
+{
+  data: {
+    id: string (UUID)
+    organizationId: string (UUID)
+    accountId: string (UUID)
+    date: string (YYYY-MM-DD)
+    amount: number
+    description: string | null
+    merchantRaw: string | null
+    categoryId: string (UUID) | null
+    reviewStatus: 'unreviewed' | 'reviewed' | 'flagged'
+    importBatchId: string (UUID) | null
+    isSplit: boolean
+    createdBy: string (UUID)
+    createdAt: string (ISO 8601)
+    updatedAt: string (ISO 8601)
+  }
+}
+```
+
+**Error Responses**:
+
+- `401 Unauthorized`: Missing or invalid token
+- `404 Not Found`: Transaction does not exist in the caller's organization
 
 ---
 
 #### PATCH /api/v1/transactions/:transactionId
 
-Update a transaction's review status or details.
+Update editable transaction details.
 
 **Authentication**: Required
+
+**Authorization**: `owner`, `admin`, or `accountant`
 
 **Path Parameters**:
 
@@ -1223,9 +1281,11 @@ Update a transaction's review status or details.
 
 ```typescript
 {
-  description?: string (max 500 chars)
-  category?: string (UUID) | null
-  reviewStatus?: 'approved' | 'rejected'
+  amount?: number (non-zero decimal)
+  categoryId?: string (UUID) | null
+  date?: string (YYYY-MM-DD)
+  description?: string (max 500 chars) | null
+  merchantRaw?: string (max 255 chars) | null
 }
 ```
 
@@ -1237,11 +1297,15 @@ Update a transaction's review status or details.
     id: string (UUID)
     organizationId: string (UUID)
     accountId: string (UUID)
-    date: string (ISO 8601)
+    date: string (YYYY-MM-DD)
     amount: number
     description: string | null
-    category: string (UUID) | null
-    reviewStatus: 'unreviewed' | 'approved' | 'rejected'
+    merchantRaw: string | null
+    categoryId: string (UUID) | null
+    reviewStatus: 'unreviewed' | 'reviewed' | 'flagged'
+    importBatchId: string (UUID) | null
+    isSplit: boolean
+    createdBy: string (UUID)
     createdAt: string (ISO 8601)
     updatedAt: string (ISO 8601)
   }
@@ -1250,10 +1314,41 @@ Update a transaction's review status or details.
 
 **Error Responses**:
 
-- `400 Bad Request`: Validation error
+- `400 Bad Request`: Validation error or empty patch body
 - `401 Unauthorized`: Missing or invalid token
+- `403 Forbidden`: Caller lacks a mutation-capable role
 - `404 Not Found`: Transaction does not exist
-- `403 Forbidden`: Transaction belongs to a different organization
+- `404 Not Found`: Referenced category does not exist in the caller's organization
+
+---
+
+#### DELETE /api/v1/transactions/:transactionId
+
+Soft-delete a transaction.
+
+**Authentication**: Required
+
+**Authorization**: `owner`, `admin`, or `accountant`
+
+**Path Parameters**:
+
+- `transactionId` (required): UUID of the transaction
+
+**Response: 200 OK**:
+
+```typescript
+{
+  data: {
+    deleted: true;
+  }
+}
+```
+
+**Error Responses**:
+
+- `401 Unauthorized`: Missing or invalid token
+- `403 Forbidden`: Caller lacks a mutation-capable role
+- `404 Not Found`: Transaction does not exist
 
 ---
 

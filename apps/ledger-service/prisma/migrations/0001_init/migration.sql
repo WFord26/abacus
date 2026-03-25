@@ -33,6 +33,7 @@ CREATE TABLE IF NOT EXISTS ledger.transactions (
   review_status TEXT DEFAULT 'unreviewed' CHECK (review_status IN ('unreviewed', 'reviewed', 'flagged')),
   import_batch_id UUID,
   is_split BOOLEAN DEFAULT FALSE,
+  is_active BOOLEAN DEFAULT TRUE,
   created_by UUID NOT NULL,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()

@@ -3,6 +3,7 @@ import { fastifyAuthPlugin, type AuthError } from "@wford26/auth-sdk";
 import Fastify from "fastify";
 
 import { LedgerServiceError } from "./lib/errors";
+import { createNoopLedgerEventPublisher, createRedisLedgerEventPublisher } from "./lib/events";
 import databasePlugin from "./plugins/database";
 import {
   createPrismaLedgerAccountRepository,
@@ -12,18 +13,27 @@ import {
   createPrismaLedgerCategoryRepository,
   type LedgerCategoryRepository,
 } from "./repositories/categories.repo";
+import {
+  createPrismaLedgerTransactionRepository,
+  type LedgerTransactionRepository,
+} from "./repositories/transactions.repo";
 import accountsRoutes from "./routes/v1/accounts.routes";
 import categoriesRoutes from "./routes/v1/categories.routes";
+import transactionsRoutes from "./routes/v1/transactions.routes";
 import { createLedgerAccountsService } from "./services/accounts.service";
 import { createLedgerCategoriesService } from "./services/categories.service";
+import { createLedgerTransactionsService } from "./services/transactions.service";
 
+import type { LedgerEventPublisher } from "./lib/events";
 import type { PrismaClient } from "@prisma/client";
 
 export type BuildLedgerServiceOptions = {
   accountRepository?: LedgerAccountRepository;
   categoryRepository?: LedgerCategoryRepository;
   db?: PrismaClient;
+  eventPublisher?: LedgerEventPublisher;
   jwtSecret?: string;
+  transactionRepository?: LedgerTransactionRepository;
 };
 
 function buildErrorResponse(error: {
@@ -82,12 +92,37 @@ function getCategoryRepository(
   throw new Error("A category repository or database connection is required");
 }
 
+function getTransactionRepository(
+  repositoryOverride: LedgerTransactionRepository | undefined,
+  dbOverride: PrismaClient | undefined,
+  appDb: PrismaClient | undefined
+) {
+  if (repositoryOverride) {
+    return repositoryOverride;
+  }
+
+  if (dbOverride) {
+    return createPrismaLedgerTransactionRepository(dbOverride);
+  }
+
+  if (appDb) {
+    return createPrismaLedgerTransactionRepository(appDb);
+  }
+
+  throw new Error("A transaction repository or database connection is required");
+}
+
 export function buildLedgerServiceApp(options: BuildLedgerServiceOptions = {}) {
   const app = Fastify({
     logger: true,
   });
 
-  if (!options.accountRepository && !options.categoryRepository && !options.db) {
+  if (
+    !options.accountRepository &&
+    !options.categoryRepository &&
+    !options.transactionRepository &&
+    !options.db
+  ) {
     app.register(databasePlugin);
   }
 
@@ -110,8 +145,24 @@ export function buildLedgerServiceApp(options: BuildLedgerServiceOptions = {}) {
     const appDb = options.db ?? fastify.db;
     const accountRepository = getAccountRepository(options.accountRepository, options.db, appDb);
     const categoryRepository = getCategoryRepository(options.categoryRepository, options.db, appDb);
+    const transactionRepository = getTransactionRepository(
+      options.transactionRepository,
+      options.db,
+      appDb
+    );
+    const eventPublisher =
+      options.eventPublisher ??
+      (process.env.REDIS_URL
+        ? createRedisLedgerEventPublisher(process.env.REDIS_URL)
+        : createNoopLedgerEventPublisher());
     const accountsService = createLedgerAccountsService(accountRepository);
     const categoriesService = createLedgerCategoriesService(categoryRepository);
+    const transactionsService = createLedgerTransactionsService(
+      transactionRepository,
+      accountRepository,
+      categoryRepository,
+      eventPublisher
+    );
 
     fastify.register(accountsRoutes, {
       service: accountsService,
@@ -119,6 +170,10 @@ export function buildLedgerServiceApp(options: BuildLedgerServiceOptions = {}) {
 
     fastify.register(categoriesRoutes, {
       service: categoriesService,
+    });
+
+    fastify.register(transactionsRoutes, {
+      service: transactionsService,
     });
   });
 

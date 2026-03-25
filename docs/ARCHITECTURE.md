@@ -1165,7 +1165,7 @@ Use this checklist to track implementation progress across the architecture plan
 
 - [x] T-050 — Ledger Service — Accounts CRUD
 - [x] T-051 — Ledger Service — Categories CRUD
-- [ ] T-052 — Ledger Service — Manual Transaction Entry
+- [x] T-052 — Ledger Service — Manual Transaction Entry
 - [ ] T-053 — Ledger Service — CSV Import Pipeline
 - [ ] T-054 — Ledger Service — Transaction Review States
 - [ ] T-060 — Web — Accounts Management Page

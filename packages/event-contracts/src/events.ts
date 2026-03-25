@@ -29,9 +29,12 @@ export interface TransactionUpdatedEvent extends BaseEvent {
   payload: {
     transactionId: string;
     changes: Partial<{
-      categoryId: string;
+      amount: number;
+      categoryId: string | null;
+      date: string;
+      merchantRaw: string | null;
       reviewStatus: ReviewStatus;
-      description: string;
+      description: string | null;
     }>;
   };
 }

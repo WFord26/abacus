@@ -48,6 +48,7 @@ model Transaction {
   reviewStatus   String              @default("unreviewed") @map("review_status")
   importBatchId  String?             @map("import_batch_id") @db.Uuid
   isSplit        Boolean             @default(false) @map("is_split")
+  isActive       Boolean             @default(true) @map("is_active")
   createdBy      String              @map("created_by") @db.Uuid
   createdAt      DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt      DateTime            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)

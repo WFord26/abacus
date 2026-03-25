@@ -42,13 +42,18 @@ function parseArgs(argv) {
   const [command = "track", ...rest] = argv;
   const options = {
     backendBump: "patch",
-    changelog: true,
+    changelog: command === "track",
     dryRun: false,
   };
 
   for (const arg of rest) {
     if (arg === "--dry-run") {
       options.dryRun = true;
+      continue;
+    }
+
+    if (arg === "--changelog") {
+      options.changelog = true;
       continue;
     }
 
@@ -74,6 +79,22 @@ function parseArgs(argv) {
   }
 
   return { command, options };
+}
+
+export function resolveBaseRef({ explicitBaseRef, latestTag, latestReleaseRef, rootCommitRef }) {
+  if (explicitBaseRef) {
+    return explicitBaseRef;
+  }
+
+  if (latestTag) {
+    return latestTag.split("\n")[0];
+  }
+
+  if (latestReleaseRef) {
+    return latestReleaseRef;
+  }
+
+  return rootCommitRef || EMPTY_TREE_HASH;
 }
 
 export function bumpSemver(version, level = "patch") {
@@ -146,22 +167,28 @@ export function getBackendAppForPath(filePath) {
 }
 
 function getBaseRef(explicitBaseRef) {
-  if (explicitBaseRef) {
-    return explicitBaseRef;
-  }
+  let latestTag = null;
+  let latestReleaseRef = null;
+  let rootCommitRef = null;
 
   try {
-    const latestTag = runGit(["tag", "--list", "v*", "--sort=-creatordate"]);
-    if (latestTag) {
-      return latestTag.split("\n")[0];
-    }
+    latestTag = runGit(["tag", "--list", "v*", "--sort=-creatordate"]);
   } catch {}
 
   try {
-    return runGit(["rev-list", "--max-parents=0", "HEAD"]);
-  } catch {
-    return EMPTY_TREE_HASH;
-  }
+    latestReleaseRef = runGit(["log", "-1", "--format=%H", "--", "release-tracking"]);
+  } catch {}
+
+  try {
+    rootCommitRef = runGit(["rev-list", "--max-parents=0", "HEAD"]);
+  } catch {}
+
+  return resolveBaseRef({
+    explicitBaseRef,
+    latestTag,
+    latestReleaseRef,
+    rootCommitRef,
+  });
 }
 
 function getExistingReleaseTags() {
@@ -537,6 +564,67 @@ function ensureTrackingDir() {
   mkdirSync(TRACKING_DIR, { recursive: true });
 }
 
+function readTrackingData(filePath) {
+  if (!existsSync(filePath)) {
+    return null;
+  }
+
+  try {
+    return readJson(filePath);
+  } catch {
+    return null;
+  }
+}
+
+export function resolveReleaseVersion({
+  existingTags,
+  releaseDate,
+  baseRef,
+  currentRootVersion,
+  latestTrackingData,
+  explicitReleaseDate = false,
+}) {
+  const trackedVersion = latestTrackingData?.release?.rootVersionAfter;
+  const hasMatchingTrackedBase = latestTrackingData?.baseRef === baseRef;
+
+  if (!explicitReleaseDate && trackedVersion && hasMatchingTrackedBase) {
+    return trackedVersion;
+  }
+
+  const knownVersions = [...existingTags];
+
+  if (currentRootVersion) {
+    knownVersions.push(currentRootVersion);
+  }
+
+  if (trackedVersion && hasMatchingTrackedBase) {
+    knownVersions.push(trackedVersion);
+  }
+
+  return getNextCalverVersion(knownVersions, releaseDate);
+}
+
+function getPlannedRelease(baseRef, options = {}) {
+  const existingTags = getExistingReleaseTags();
+  const releaseDate = options.releaseDate ?? formatCalver();
+  const latestTrackingData = readTrackingData(TRACKING_LATEST_PATH);
+  const currentRootVersion = readJson(ROOT_PACKAGE_PATH).version;
+  const nextRootVersion = resolveReleaseVersion({
+    existingTags,
+    releaseDate,
+    baseRef,
+    currentRootVersion,
+    latestTrackingData,
+    explicitReleaseDate: Boolean(options.releaseDate),
+  });
+
+  return {
+    currentRootVersion,
+    releaseDate,
+    nextRootVersion,
+  };
+}
+
 function buildTrackingData(baseRef, options = {}) {
   const fileStructure = getChangedFileStructure(baseRef);
   const backendBumps = getBackendBumps(fileStructure, options.backendBump ?? "patch");
@@ -646,7 +734,18 @@ function writeTrackingFile(trackingData, versionLabel, dryRun) {
 
 function runTrack(options) {
   const baseRef = getBaseRef(options.baseRef);
+  const plannedRelease = getPlannedRelease(baseRef, options);
   const trackingData = buildTrackingData(baseRef, options);
+
+  trackingData.release = {
+    rootVersionBefore: plannedRelease.currentRootVersion,
+    rootVersionAfter: plannedRelease.nextRootVersion,
+  };
+
+  if (options.changelog) {
+    updateChangelog(plannedRelease.nextRootVersion, options.dryRun);
+  }
+
   const outputPath = writeTrackingFile(trackingData, null, options.dryRun);
 
   return { outputPath, trackingData };
@@ -654,24 +753,21 @@ function runTrack(options) {
 
 function runRelease(options) {
   const baseRef = getBaseRef(options.baseRef);
-  const existingTags = getExistingReleaseTags();
-  const releaseDate = options.releaseDate ?? formatCalver();
-  const nextRootVersion = getNextCalverVersion(existingTags, releaseDate);
+  const plannedRelease = getPlannedRelease(baseRef, options);
   const trackingData = buildTrackingData(baseRef, options);
 
   trackingData.release = {
-    rootVersionBefore: readJson(ROOT_PACKAGE_PATH).version,
-    rootVersionAfter: nextRootVersion,
+    rootVersionBefore: plannedRelease.currentRootVersion,
+    rootVersionAfter: plannedRelease.nextRootVersion,
   };
 
-  updateRootVersion(nextRootVersion, options.dryRun);
+  updateRootVersion(plannedRelease.nextRootVersion, options.dryRun);
   applyBackendBumps(trackingData.backendBumps, options.dryRun);
-
-  if (options.changelog) {
-    updateChangelog(nextRootVersion, options.dryRun);
-  }
-
-  const outputPath = writeTrackingFile(trackingData, nextRootVersion, options.dryRun);
+  const outputPath = writeTrackingFile(
+    trackingData,
+    plannedRelease.nextRootVersion,
+    options.dryRun
+  );
 
   return { outputPath, trackingData };
 }
