@@ -8,7 +8,14 @@ Versioning: CalVer YYYY.MM.DD
 
 ### Added
 
+- T-020: Identity service core routes for `/me`, organizations, and membership management with owner safeguards and integration coverage.
+- T-021: Identity service auth routes for register, login, refresh, and logout with rotating refresh tokens and rate-limited login attempts.
+- T-022: Identity service multi-org membership lifecycle with invite acceptance or decline, org switching, and role-aware owner versus admin permissions.
+- T-031: API gateway identity-service routing coverage for auth, `/me`, and organization membership requests.
+
 ### Changed
+
+- Architecture: drafted the missing `T-041` and `T-042` task specs for web auth onboarding and the authenticated shell layout.
 
 ### Fixed
 

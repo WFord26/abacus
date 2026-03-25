@@ -17,6 +17,17 @@ type GatewayConfig = {
   serviceUrls: Record<ServiceName, string | undefined>;
 };
 
+type GatewayConfigOverrides = Partial<Omit<GatewayConfig, "serviceUrls">> & {
+  serviceUrls?: Partial<Record<ServiceName, string | undefined>>;
+};
+
+type GatewayFetch = typeof fetch;
+
+export type BuildApiGatewayOptions = {
+  config?: GatewayConfigOverrides;
+  fetchImpl?: GatewayFetch;
+};
+
 const ROUTE_SERVICE_MAP: Record<string, ServiceName> = {
   accounts: "ledger",
   auth: "identity",
@@ -32,8 +43,8 @@ const ROUTE_SERVICE_MAP: Record<string, ServiceName> = {
   transactions: "ledger",
 };
 
-function getConfig(): GatewayConfig {
-  return {
+function getConfig(overrides: GatewayConfigOverrides = {}): GatewayConfig {
+  const baseConfig: GatewayConfig = {
     frontendOrigin: process.env.FRONTEND_ORIGIN ?? "http://localhost:3007",
     jwtSecret: process.env.JWT_SECRET ?? "development-secret",
     port: Number(process.env.PORT ?? 3000),
@@ -43,6 +54,15 @@ function getConfig(): GatewayConfig {
       documents: process.env.DOCUMENTS_SERVICE_URL,
       reporting: process.env.REPORTING_SERVICE_URL,
       invoicing: process.env.INVOICING_SERVICE_URL,
+    },
+  };
+
+  return {
+    ...baseConfig,
+    ...overrides,
+    serviceUrls: {
+      ...baseConfig.serviceUrls,
+      ...overrides.serviceUrls,
     },
   };
 }
@@ -144,8 +164,12 @@ function getProxyHeaders(request: FastifyRequest) {
   return headers;
 }
 
-async function proxyRequest(request: FastifyRequest, reply: FastifyReply) {
-  const config = getConfig();
+async function proxyRequest(
+  request: FastifyRequest,
+  reply: FastifyReply,
+  config: GatewayConfig,
+  fetchImpl: GatewayFetch
+) {
   const wildcard = ((request.params as { "*": string })["*"] ?? "").replace(/^\/+/, "");
   const serviceName = getServiceNameFromPath(wildcard);
 
@@ -188,7 +212,7 @@ async function proxyRequest(request: FastifyRequest, reply: FastifyReply) {
     requestInit.body = proxyBody;
   }
 
-  const upstreamResponse = await fetch(upstreamUrl, requestInit);
+  const upstreamResponse = await fetchImpl(upstreamUrl, requestInit);
 
   const setCookie =
     "getSetCookie" in upstreamResponse.headers &&
@@ -218,8 +242,9 @@ async function proxyRequest(request: FastifyRequest, reply: FastifyReply) {
   reply.type(contentType ?? "text/plain").send(responseText);
 }
 
-export function buildApiGateway() {
-  const config = getConfig();
+export function buildApiGateway(options: BuildApiGatewayOptions = {}) {
+  const config = getConfig(options.config);
+  const fetchImpl = options.fetchImpl ?? fetch;
   const app = Fastify({
     logger: true,
   });
@@ -262,7 +287,7 @@ export function buildApiGateway() {
   });
 
   app.all("/api/v1/*", async (request, reply) => {
-    await proxyRequest(request, reply);
+    await proxyRequest(request, reply, config, fetchImpl);
   });
 
   app.setNotFoundHandler((request, reply) => {

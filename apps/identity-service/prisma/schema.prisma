@@ -12,6 +12,8 @@ model User {
   email         String       @unique
   passwordHash  String?      @map("password_hash")
   emailVerified Boolean      @default(false) @map("email_verified")
+  name          String?
+  avatarUrl     String?      @map("avatar_url")
   createdAt     DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt     DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   memberships   Membership[]
@@ -35,6 +37,7 @@ model Membership {
   userId         String       @map("user_id") @db.Uuid
   organizationId String       @map("organization_id") @db.Uuid
   role           String
+  status         String       @default("active")
   createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
   user           User         @relation(fields: [userId], references: [id])
   organization   Organization @relation(fields: [organizationId], references: [id])

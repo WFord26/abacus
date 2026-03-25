@@ -1196,7 +1196,7 @@ Use this checklist to track implementation progress across the architecture plan
 - [ ] T-131 — Invoicing Service — PDF Generation
 - [ ] T-140 — Web — Invoicing Pages
 
-> Note: `T-022`, `T-031`, `T-041`, and `T-042` appear in the dependency graph but do not yet have detailed task specs in this registry. Keep them on the checklist so they are not lost during planning.
+> Note: `T-031` appears in the dependency graph but does not yet have detailed task specs in this registry. Keep it on the checklist so it is not lost during planning.
 
 ---
 
@@ -1689,6 +1689,57 @@ POST /auth/logout
 
 ---
 
+#### T-022 — Identity Service — Org Membership + Roles
+
+**Priority:** MUST-HAVE  
+**Tier:** 3  
+**Dependencies:** T-020, T-021  
+**Estimated complexity:** Medium
+
+**Objective:** Complete the multi-organization membership lifecycle so users can accept invites, switch their active organization, and receive JWT claims with the correct `organizationId` and `role` for downstream services.
+
+**Implement or extend these routes:**
+
+```
+GET  /organizations                        # List current user's organizations with membership status + role
+POST /organizations/:orgId/accept-invite  # Accept pending invite for authenticated user
+POST /organizations/:orgId/decline-invite # Decline pending invite for authenticated user
+
+POST /auth/switch-organization            # Issue new access + refresh tokens for selected org
+```
+
+**Extend these existing membership routes with role-aware authorization:**
+
+```
+GET    /organizations/:orgId/members
+POST   /organizations/:orgId/members/invite
+DELETE /organizations/:orgId/members/:userId
+PATCH  /organizations/:orgId/members/:userId/role
+```
+
+**Business rules:**
+
+- A user may belong to multiple organizations, but each access token represents exactly one active organization context
+- Pending invites can only be accepted or declined by an authenticated user whose email matches the invited membership
+- `POST /auth/switch-organization` may only issue tokens for an `active` membership; pending or revoked memberships must return `403`
+- Role matrix for org membership management:
+  - `owner`: full org control, including promoting or demoting other owners
+  - `admin`: may invite or remove non-owner members and change roles except `owner`
+  - `accountant` and `viewer`: no membership-management permissions
+- An organization must have at least one `owner` at all times
+- JWT claims are always derived from the stored membership record, never trusted from request input
+
+**Acceptance criteria:**
+
+- `GET /organizations` returns all memberships for the current user, including `organization`, `role`, and `status`
+- Accepting an invite changes membership status from `pending` to `active`
+- Declining an invite prevents that membership from being used for org switching
+- Switching organizations rotates the refresh token and returns a new access token with the selected `organizationId` and `role`
+- `admin` cannot promote a user to `owner` or remove the last remaining `owner`
+- Integration tests cover multi-org users, invite acceptance or decline, org switching, and unauthorized role changes
+
+---
+
 #### T-030 — API Gateway — Scaffold + Auth Middleware
 
 **Priority:** MUST-HAVE  
@@ -1787,6 +1838,96 @@ POST /auth/logout
 - Unauthenticated users are redirected to `/login`
 - `api-client.ts` handles 401 refresh correctly
 - Sidebar collapses on mobile
+
+---
+
+#### T-041 — Web — Auth Pages (Sign In, Sign Up, Org Setup)
+
+**Priority:** MUST-HAVE  
+**Tier:** 3  
+**Dependencies:** T-021, T-022, T-030, T-040  
+**Estimated complexity:** Medium
+
+**Objective:** Build the user-facing authentication and onboarding pages in the web app so new and returning users can sign in, create an account, and complete their first organization setup before entering the main shell.
+
+**Implement these routes in `apps/web/app/(auth)/`:**
+
+```
+GET /login    # Sign in
+GET /register # Sign up
+GET /setup    # First-run organization setup / onboarding
+```
+
+**Page requirements:**
+
+1. `login/page.tsx`
+   - Email and password form
+   - Clear loading and validation states
+   - On success, store the returned auth session and redirect into the app
+   - Respect `next` query params when present
+
+2. `register/page.tsx`
+   - Name, email, and password form
+   - On success, bootstrap the new user session and route them into org setup or the app shell
+   - Present registration errors inline without losing form state
+
+3. `setup/page.tsx`
+   - First-run workspace setup UI for creating the initial organization
+   - Support the base company/workspace details already modeled by identity, including organization name and optional business type
+   - Present a simple path for users who arrive here after registration, invite acceptance, or an org switch failure
+
+**Integration requirements:**
+
+- Use the existing auth context and `api-client.ts` from `T-040`
+- Keep unauthenticated pages inside the `(auth)` route group
+- Send authenticated users away from `/login` and `/register` if a valid session already exists
+- Use the identity service responses directly, without duplicating session-shaping logic in the page layer
+
+**Acceptance criteria:**
+
+- Sign in succeeds and lands on the app shell
+- Sign up creates a usable session and lands on organization setup or the app shell as appropriate
+- The org setup page creates the first usable organization context for a new user
+- Auth errors are rendered inline and do not reset the form
+- Mobile layouts remain usable on small screens
+
+---
+
+#### T-042 — Web — Shell Layout (Nav, Sidebar, Org Context)
+
+**Priority:** MUST-HAVE  
+**Tier:** 3  
+**Dependencies:** T-021, T-022, T-031, T-040  
+**Estimated complexity:** Medium
+
+**Objective:** Build the authenticated application shell that keeps the user's active organization, navigation, and account controls visible across all signed-in pages.
+
+**Implement the authenticated shell in:**
+
+1. `src/components/app-shell.tsx` or equivalent shell component with:
+   - Responsive sidebar navigation for desktop and mobile
+   - Active-route highlighting for the dashboard, transactions, expenses, receipts, invoices, reports, and settings sections
+   - Top header with current organization context
+   - User menu with settings and sign-out actions
+   - Theme toggle and mobile drawer behavior that closes on navigation
+
+2. `app/(app)/layout.tsx` with:
+   - `AuthGuard` protection around all authenticated routes
+   - `AppShell` wrapper around route content
+   - A content area that remains usable on small screens and large desktops
+
+3. Org context wiring that:
+   - Reads the selected organization from the auth/session state
+   - Handles loading and empty-org states gracefully
+   - Supports organization switching once `T-022` lands, without requiring page reloads
+
+**Acceptance criteria:**
+
+- Authenticated pages render inside a shared shell with consistent navigation and header chrome
+- Sidebar opens and closes cleanly on mobile, with no layout shift on desktop
+- The current organization is shown in the header and updates when the selected org changes
+- Signing out clears session state and returns the user to `/login`
+- Shell behavior works across all authenticated routes without hardcoded page-specific state
 
 ---
 

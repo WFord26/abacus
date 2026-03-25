@@ -37,7 +37,7 @@ This project uses **Calendar Versioning (CalVer)** with the format `YYYY.MM.DD`.
 
 ### Where the versions live
 
-The canonical release version is in the root `package.json`:
+**Root `package.json` (CalVer):**
 
 ```json
 {
@@ -46,14 +46,54 @@ The canonical release version is in the root `package.json`:
 }
 ```
 
-- The root version uses CalVer and represents the repository release.
-- Backend service apps in `apps/*-service` and `apps/api-gateway` use normal semantic versioning.
-- Internal packages in `packages/*` also use semantic versioning unless a task says otherwise.
-- The web app may track the root release version when appropriate, but it is not used to drive backend service bumps.
+The root version uses CalVer (`YYYY.MM.DD`) and represents a full monorepo release.
 
-### How to bump the version
+**Sub-package `package.json` files (Semantic Versioning):**
 
-When preparing a release:
+Every service and internal package **must** define its own semantic version:
+
+```json
+{
+  "name": "@wford26/ledger-service",
+  "version": "2.1.5"
+}
+```
+
+- Backend service apps in `apps/*-service` and `apps/api-gateway` must use semantic versioning (`MAJOR.MINOR.PATCH`)
+- Internal packages in `packages/*` must use semantic versioning
+- The web app (`apps/web`) must use semantic versioning
+
+This hybrid approach allows:
+
+- **Independent microservice releases:** Each service can be versioned and deployed on its own schedule
+- **Clear breaking changes:** SemVer clearly signals when a service has breaking API or schema changes
+- **Monorepo coordination:** The root CalVer version tracks full-monorepo releases and documentation milestones
+
+For example:
+
+- `ledger-service@2.1.0` can be deployed while `invoicing-service@1.5.3` remains in production
+- A breaking schema change in `ledger-service` increments its major version without affecting other services
+- The root monorepo version `2026.03.25` may represent a documentation or infrastructure release
+
+### How to bump versions
+
+**For individual service/package releases (semantic versioning):**
+
+When releasing a single service with changes, manually:
+
+1. Determine the version bump based on SemVer rules:
+   - `MAJOR` for breaking changes (API incompatibilities, database migrations)
+   - `MINOR` for new backward-compatible features
+   - `PATCH` for bug fixes
+2. Update the `version` field in the service's `package.json`
+3. Create a commit: `chore({service}): release MAJOR.MINOR.PATCH`
+4. Tag with the service name: `git tag {service}@MAJOR.MINOR.PATCH`
+
+Example: `ledger-service@2.1.5`
+
+**For coordinated monorepo releases (root CalVer):**
+
+When preparing a full monorepo release:
 
 1. Update `version` in the root `package.json` to today's date in `YYYY.MM.DD` format.
 2. Run `pnpm version:bump` to:
@@ -66,10 +106,10 @@ When preparing a release:
 
 **Copilot should:**
 
-- When asked to "bump the version" or "prepare a release", use today's date in `YYYY.MM.DD` format.
-- Never suggest semver (`1.2.3`) for this project.
-- Treat backend service versions as semver, not CalVer.
-- Remind the developer to run `pnpm version:bump` when preparing a release.
+- When asked to "bump the version" or "prepare a release" for a single service, use semantic versioning and determine `MAJOR.MINOR.PATCH` based on the changes
+- When asked to "bump the root version" or "prepare a monorepo release", use today's date in `YYYY.MM.DD` format
+- Always recommend the appropriate version strategy based on the scope of the release
+- Remind the developer to run `pnpm version:bump` when preparing a coordinated monorepo release
 
 ---
 
@@ -506,6 +546,185 @@ When Copilot helps draft or review a PR, verify these items are addressed:
 - [ ] No `any` types introduced (use `unknown` + type guard if unavoidable)
 - [ ] Dockerfile updated if new environment variables were added
 - [ ] `docs/architecture.md` updated if a new service, route, or database table was added
+- [ ] `docs/api.md` updated with any new or modified v1 API endpoints
+
+---
+
+## API Schema Documentation
+
+The project maintains comprehensive API documentation in `docs/api.md` for all v1 endpoints. This file serves as the single source of truth for API structure and is used to generate Swagger/OpenAPI specifications for development and review purposes.
+
+### File location and purpose
+
+```
+docs/api.md
+```
+
+This file documents:
+
+- All v1 API endpoints across all services
+- Request/response schemas with Zod type inference
+- Authentication requirements
+- HTTP status codes and error responses
+- Query parameters, path parameters, and headers
+- Examples for each endpoint
+
+### API.md structure
+
+The file follows this pattern:
+
+```markdown
+# Abacus API Schema
+
+All API endpoints documented here use HTTP/REST conventions. Schemas are inferred from Zod validators used in route handlers.
+
+## Authentication
+
+All routes require a Bearer token in the `Authorization` header:
+```
+
+Authorization: Bearer <JWT_TOKEN>
+
+```
+
+Claims in token:
+- `organizationId`: UUID of the organization
+- `userId`: UUID of the authenticated user
+
+## Base URL
+
+- Development: `http://localhost:3000`
+- Production: `https://api.abacus.app`
+
+## ledger-service
+
+### POST /v1/transactions
+
+Create a new transaction in an account.
+
+**Authentication:** Required
+
+**Request:**
+\`\`\`typescript
+{
+  accountId: string (UUID)
+  date: string (YYYY-MM-DD)
+  amount: number (non-zero, decimals supported)
+  description?: string (max 500 chars)
+}
+\`\`\`
+
+**Response: 201 Created**
+\`\`\`typescript
+{
+  data: {
+    id: string (UUID)
+    organizationId: string (UUID)
+    accountId: string (UUID)
+    date: string (ISO 8601)
+    amount: number
+    description: string | null
+    reviewStatus: 'unreviewed' | 'approved' | 'rejected'
+    createdAt: string (ISO 8601)
+    updatedAt: string (ISO 8601)
+  }
+}
+\`\`\`
+
+**Error Responses:**
+- `400 Bad Request`: Validation error (invalid date format, zero amount, etc.)
+- `401 Unauthorized`: Missing or invalid token
+- `404 Not Found`: Account does not exist or does not belong to user's organization
+- `500 Internal Server Error`: Unexpected server error
+
+**Example:**
+\`\`\`bash
+curl -X POST http://localhost:3000/v1/transactions \\
+  -H "Authorization: Bearer <JWT>" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "accountId": "550e8400-e29b-41d4-a716-446655440000",
+    "date": "2026-03-25",
+    "amount": -45.00,
+    "description": "Coffee shop"
+  }'
+\`\`\`
+
+### GET /v1/transactions
+
+List transactions for an account.
+
+**Authentication:** Required
+
+**Query Parameters:**
+- `accountId` (required): UUID of the account
+- `limit` (optional): Number of results (default: 20, max: 100)
+- `offset` (optional): Pagination offset (default: 0)
+
+**Response: 200 OK**
+\`\`\`typescript
+{
+  data: Transaction[],
+  pagination: {
+    total: number,
+    limit: number,
+    offset: number
+  }
+}
+\`\`\`
+```
+
+### When to update API.md
+
+**Copilot should update `docs/api.md` when:**
+
+1. **Adding a new v1 endpoint** — document it immediately as part of the route implementation
+2. **Modifying v1 endpoint request/response schema** — update the corresponding section
+3. **Changing HTTP status codes or error handling** — ensure the error responses section is current
+
+**Do not document:**
+
+- v0 or internal endpoints
+- Endpoints without authentication (unless intentionally public)
+- Development-only debug endpoints
+
+### Format guidelines
+
+**For each endpoint, document:**
+
+- HTTP method and path (e.g., `POST /v1/transactions`)
+- Authentication requirement and any permission checks
+- All request parameters with TypeScript types and constraints
+- All response schemas with status code
+- All error response codes with descriptions
+- At least one working cURL example
+- Any rate limiting or quota information
+
+**Use real TypeScript types from Zod schemas:**
+
+```markdown
+Request schema is inferred from `CreateTransactionSchema` in `ledger-service/src/routes/v1/transactions.ts`
+```
+
+Then show the inferred type structure.
+
+**Example of linking to source:**
+
+```markdown
+See: [ledger-service/src/routes/v1/transactions.ts](../../apps/ledger-service/src/routes/v1/transactions.ts)
+```
+
+### Swagger/OpenAPI generation
+
+The `docs/api.md` file is designed to be parseable and convertible to OpenAPI 3.0 for Swagger UI. Future tooling will generate Swagger specs directly from this file.
+
+**Copilot should:**
+
+- Maintain consistent structure across all endpoint documentation
+- Use markdown code blocks for JSON/TypeScript examples
+- Link to service source files for reference
+- Update this file as part of any new route or schema change
+- Never defer API documentation — it is as important as tests
 
 ---
 
@@ -572,3 +791,5 @@ const redis = new Redis(process.env.REDIS_URL!, {
 - Never skip the changelog entry after a change is approved
 - Never define domain types locally in a service — they belong in `@wford26/shared-types`
 - Never write raw SQL — Prisma ORM only, except for the initial migration SQL in `prisma/migrations/`
+- Never use CalVer versioning (`YYYY.MM.DD`) for sub-packages or services — only the root `package.json` uses CalVer; all services and packages use semantic versioning (`MAJOR.MINOR.PATCH`)
+- Never skip API documentation in `docs/api.md` when adding or modifying v1 endpoints

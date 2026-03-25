@@ -30,6 +30,10 @@ export type Membership = {
   createdAt: string;
 };
 
+export type MembershipWithOrganization = Membership & {
+  organization: Organization;
+};
+
 export type AuthTokens = {
   accessToken: string;
   refreshToken: string;
