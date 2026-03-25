@@ -20,6 +20,8 @@ Authorization: Bearer <JWT_TOKEN>
 
 Public auth exceptions:
 
+- `GET /api/v1/auth/bootstrap-status`
+- `POST /api/v1/auth/bootstrap-admin`
 - `POST /api/v1/auth/register`
 - `POST /api/v1/auth/login`
 - `POST /api/v1/auth/refresh`
@@ -36,6 +38,27 @@ The JWT currently contains claims:
 - `userId`: UUID of the authenticated user
 - `email`: Email address of the user
 - `role`: One of `owner`, `admin`, `accountant`, `viewer`
+
+### Auth And Onboarding Flow
+
+The current web onboarding flow uses these API calls in sequence:
+
+1. Optional first-run bootstrap: `GET /api/v1/auth/bootstrap-status`
+   If `available` is `true`, the very first owner account may be created through `POST /api/v1/auth/bootstrap-admin`.
+2. `POST /api/v1/auth/register`
+   Creates the user, creates a personal workspace, and returns the first authenticated session.
+3. Optional: `POST /api/v1/organizations`
+   Used by the `/setup` page when the user wants a dedicated business workspace instead of staying in the personal workspace created at registration.
+4. `POST /api/v1/auth/switch-organization`
+   Used immediately after creating that workspace so the session and JWT claims move into the newly created organization context.
+5. `GET /api/v1/organizations`
+   Used by the client to list active memberships and pending invites for org-aware navigation and future switching flows.
+
+Returning-user sign-in uses:
+
+1. `POST /api/v1/auth/login`
+2. `POST /api/v1/auth/refresh` when the access token expires
+3. `POST /api/v1/auth/switch-organization` when the active org changes
 
 ### Base URLs
 
@@ -97,6 +120,60 @@ All endpoints return JSON responses in this format:
 
 **Public base**: `/api/v1`
 
+#### GET /api/v1/auth/bootstrap-status
+
+Report whether one-time bootstrap admin creation is still available.
+
+**Authentication**: Not required
+
+**Response: 200 OK**:
+
+```typescript
+{
+  data: {
+    available: boolean;
+  }
+}
+```
+
+**Notes**:
+
+- `available` is `true` only while the system has no registered auth accounts
+
+---
+
+#### POST /api/v1/auth/bootstrap-admin
+
+Create the very first owner account for a fresh environment and return an authenticated session.
+
+**Authentication**: Not required
+
+**Request**:
+
+```typescript
+{
+  email: string;
+  name: string;
+  password: string;
+}
+```
+
+**Response: 201 Created**:
+
+Same response shape as `POST /api/v1/auth/register`.
+
+**Error Responses**:
+
+- `400 Bad Request`: Invalid email, weak password, or missing fields
+- `409 Conflict`: Bootstrap is no longer available because an auth account already exists
+
+**Notes**:
+
+- This endpoint is intended for first-run setup only
+- After the first account exists, use `POST /api/v1/auth/register` for normal sign-up
+
+---
+
 #### POST /api/v1/auth/register
 
 Register a new user, create a personal organization, and return an authenticated session.
@@ -148,6 +225,11 @@ Register a new user, create a personal organization, and return an authenticated
 
 - `400 Bad Request`: Invalid email, weak password, or missing fields
 - `409 Conflict`: Email already registered
+
+**Notes**:
+
+- This endpoint already creates a usable default workspace for the new user
+- The web `/setup` flow may create an additional organization afterward if the user wants a dedicated business workspace
 
 ---
 
@@ -285,6 +367,10 @@ Rotate the refresh token and issue a new access token for a different active org
 - `403 Forbidden`: Membership is missing or not active for the selected organization
 - `404 Not Found`: User or organization does not exist
 
+**Notes**:
+
+- The web onboarding flow calls this right after `POST /api/v1/organizations` so the new workspace becomes active immediately
+
 ---
 
 #### POST /api/v1/auth/logout
@@ -416,6 +502,11 @@ Create an organization and add the current user as its `owner`.
   }
 }
 ```
+
+**Notes**:
+
+- The current `/setup` page uses this endpoint to create a named business workspace after initial registration
+- Creating the organization does not change the JWT by itself; the client should call `POST /api/v1/auth/switch-organization` if it wants the new org to become the active session context immediately
 
 ---
 
@@ -1097,6 +1188,7 @@ Get a financial summary report for the organization.
 
 - Updated the documented public API prefix to `/api/v1` via the gateway
 - Synced the identity section with the implemented auth, profile, organization, membership, and org-switching endpoints
+- Documented the current web auth and onboarding sequence that uses `register`, `organizations`, and `switch-organization`
 
 ### [2026.03.25]
 

@@ -12,28 +12,54 @@ import {
 } from "@wford26/ui";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { startTransition, useState } from "react";
+import { startTransition, useEffect, useState } from "react";
 
 import { useAuth } from "../../../src/contexts/auth-context";
 
 export default function LoginPage() {
-  const { error, isLoading, login } = useAuth();
+  const {
+    bootstrapAvailable,
+    clearError,
+    error,
+    isBootstrapStatusLoading,
+    isLoading,
+    login,
+    user,
+  } = useAuth();
   const router = useRouter();
+  const [nextPath] = useState(() => {
+    if (typeof window === "undefined") {
+      return "/";
+    }
+
+    return new URLSearchParams(window.location.search).get("next") ?? "/";
+  });
   const [form, setForm] = useState({
     email: "",
     password: "",
   });
+
+  useEffect(() => {
+    clearError();
+  }, [clearError]);
+
+  useEffect(() => {
+    if (!isLoading && !isBootstrapStatusLoading && !user && bootstrapAvailable) {
+      router.replace("/bootstrap");
+    }
+  }, [bootstrapAvailable, isBootstrapStatusLoading, isLoading, router, user]);
+
+  useEffect(() => {
+    if (!isLoading && user) {
+      router.replace(nextPath);
+    }
+  }, [isLoading, nextPath, router, user]);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     try {
       await login(form.email, form.password);
-      const nextPath =
-        typeof window === "undefined"
-          ? "/"
-          : (new URLSearchParams(window.location.search).get("next") ?? "/");
-
       startTransition(() => {
         router.replace(nextPath);
       });
@@ -51,7 +77,7 @@ export default function LoginPage() {
             Sign in to Abacus
           </CardTitle>
           <CardDescription className="text-base text-neutral-600 dark:text-neutral-300">
-            This shell is wired for the upcoming identity service routes and token flow.
+            Pick up where you left off with your organization, reports, and finance workflows.
           </CardDescription>
         </CardHeader>
         <CardContent>

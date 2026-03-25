@@ -109,6 +109,8 @@ export function buildIdentityServiceApp(options: BuildIdentityServiceOptions = {
   const authPluginOptions = {
     formatError: (error: AuthError) => buildErrorResponse(error),
     publicPathPrefixes: [
+      "/auth/bootstrap-admin",
+      "/auth/bootstrap-status",
       "/auth/login",
       "/auth/logout",
       "/auth/refresh",

@@ -12,12 +12,20 @@ Versioning: CalVer YYYY.MM.DD
 - T-021: Identity service auth routes for register, login, refresh, and logout with rotating refresh tokens and rate-limited login attempts.
 - T-022: Identity service multi-org membership lifecycle with invite acceptance or decline, org switching, and role-aware owner versus admin permissions.
 - T-031: API gateway identity-service routing coverage for auth, `/me`, and organization membership requests.
+- T-041: Web auth and onboarding flow for sign-in, registration, first-run workspace setup, and org-aware session handoff.
+- T-042: Authenticated web shell with responsive sidebar, org switcher, pending-invite context, and account controls tied to live org memberships.
+- Identity bootstrap: one-time first-admin setup endpoints for fresh environments via `/api/v1/auth/bootstrap-status` and `/api/v1/auth/bootstrap-admin`.
 
 ### Changed
 
 - Architecture: drafted the missing `T-041` and `T-042` task specs for web auth onboarding and the authenticated shell layout.
+- API docs: updated `docs/api.md` to reflect the gateway-backed `/api/v1` routes and the implemented identity endpoints.
 
 ### Fixed
+
+- Stabilization: made `apps/web` typechecking self-sufficient by generating Next build artifacts before `tsc`, fixed the identity-service `start` script to use the actual build output path, and corrected the local Docker Compose stack to use a runnable MinIO image plus conflict-free PostgreSQL and Redis host ports.
+- Developer experience: root `npm run dev` now starts the implemented local stack by reading the root `.env` and launching identity, API gateway, and web together.
+- Web auth: fresh environments now detect bootstrap mode and route users into a dedicated first-admin creation screen automatically.
 
 ### Removed
 

@@ -43,6 +43,24 @@ const ROUTE_SERVICE_MAP: Record<string, ServiceName> = {
   transactions: "ledger",
 };
 
+function buildAllowedOrigins(frontendOrigin: string) {
+  const allowedOrigins = new Set([frontendOrigin]);
+
+  try {
+    const parsedOrigin = new URL(frontendOrigin);
+
+    if (parsedOrigin.hostname === "127.0.0.1" || parsedOrigin.hostname === "localhost") {
+      const alternateOrigin = new URL(frontendOrigin);
+      alternateOrigin.hostname = parsedOrigin.hostname === "127.0.0.1" ? "localhost" : "127.0.0.1";
+      allowedOrigins.add(alternateOrigin.origin);
+    }
+  } catch {
+    // Ignore invalid env values here and let the exact configured origin be used.
+  }
+
+  return allowedOrigins;
+}
+
 function getConfig(overrides: GatewayConfigOverrides = {}): GatewayConfig {
   const baseConfig: GatewayConfig = {
     frontendOrigin: process.env.FRONTEND_ORIGIN ?? "http://localhost:3007",
@@ -245,12 +263,20 @@ async function proxyRequest(
 export function buildApiGateway(options: BuildApiGatewayOptions = {}) {
   const config = getConfig(options.config);
   const fetchImpl = options.fetchImpl ?? fetch;
+  const allowedOrigins = buildAllowedOrigins(config.frontendOrigin);
   const app = Fastify({
     logger: true,
   });
 
   app.register(cors, {
-    origin: config.frontendOrigin,
+    origin(origin, callback) {
+      if (!origin) {
+        callback(null, true);
+        return;
+      }
+
+      callback(null, allowedOrigins.has(origin));
+    },
     credentials: true,
   });
 

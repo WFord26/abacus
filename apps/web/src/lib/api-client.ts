@@ -53,7 +53,15 @@ function redirectToLogin() {
     return;
   }
 
-  window.location.href = "/login";
+  const nextPath = `${window.location.pathname}${window.location.search}`;
+  const params = new URLSearchParams();
+
+  if (nextPath && nextPath !== "/login") {
+    params.set("next", nextPath);
+  }
+
+  const target = params.size > 0 ? `/login?${params.toString()}` : "/login";
+  window.location.href = target;
 }
 
 function normalizeBody(body: ApiClientInit["body"]) {

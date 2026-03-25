@@ -12,28 +12,55 @@ import {
 } from "@wford26/ui";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { startTransition, useState } from "react";
+import { startTransition, useEffect, useState } from "react";
 
 import { useAuth } from "../../../src/contexts/auth-context";
 
 export default function RegisterPage() {
-  const { error, isLoading, register } = useAuth();
+  const {
+    bootstrapAvailable,
+    clearError,
+    error,
+    isBootstrapStatusLoading,
+    isLoading,
+    register,
+    user,
+  } = useAuth();
   const router = useRouter();
+  const [shouldRouteToSetup, setShouldRouteToSetup] = useState(false);
   const [form, setForm] = useState({
     email: "",
     name: "",
     password: "",
   });
 
+  useEffect(() => {
+    clearError();
+  }, [clearError]);
+
+  useEffect(() => {
+    if (!isLoading && !isBootstrapStatusLoading && !user && bootstrapAvailable) {
+      router.replace("/bootstrap");
+    }
+  }, [bootstrapAvailable, isBootstrapStatusLoading, isLoading, router, user]);
+
+  useEffect(() => {
+    if (!isLoading && user) {
+      router.replace(shouldRouteToSetup ? "/setup" : "/");
+    }
+  }, [isLoading, router, shouldRouteToSetup, user]);
+
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setShouldRouteToSetup(true);
 
     try {
       await register(form.name, form.email, form.password);
       startTransition(() => {
-        router.replace("/");
+        router.replace("/setup");
       });
     } catch {
+      setShouldRouteToSetup(false);
       // Surface the provider error state in the UI.
     }
   }
@@ -47,7 +74,8 @@ export default function RegisterPage() {
             Create your account
           </CardTitle>
           <CardDescription className="text-base text-neutral-600 dark:text-neutral-300">
-            Registration is ready for the identity service flow and personal-organization bootstrap.
+            We&apos;ll create your secure account first, then help you set up the workspace you want
+            to use every day.
           </CardDescription>
         </CardHeader>
         <CardContent>

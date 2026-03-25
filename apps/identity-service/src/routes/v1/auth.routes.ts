@@ -24,6 +24,26 @@ const refreshCookieOptions = {
 };
 
 const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (fastify, options) => {
+  fastify.get("/auth/bootstrap-status", async () => {
+    const status = await options.service.getBootstrapStatus();
+
+    return success(status);
+  });
+
+  fastify.post("/auth/bootstrap-admin", async (request, reply) => {
+    const body = parseSchema(registerBodySchema, request.body);
+    const session = await options.service.bootstrapAdmin(body);
+
+    reply.setCookie(REFRESH_TOKEN_COOKIE_NAME, session.tokens.refreshToken, refreshCookieOptions);
+    reply.status(201);
+
+    return success({
+      organization: sanitizeOrganization(session.organization),
+      tokens: session.tokens,
+      user: sanitizeUser(session.user),
+    });
+  });
+
   fastify.post("/auth/register", async (request, reply) => {
     const body = parseSchema(registerBodySchema, request.body);
     const session = await options.service.register(body);

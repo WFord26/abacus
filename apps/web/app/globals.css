@@ -7,8 +7,8 @@
   --app-background:
     radial-gradient(circle at top, rgba(37, 99, 235, 0.14), transparent 30%),
     linear-gradient(180deg, #f8fafc 0%, #eef4ff 45%, #ffffff 100%);
-  --panel-background: rgba(255, 255, 255, 0.88);
-  --panel-border: rgba(148, 163, 184, 0.18);
+  --panel-background: rgba(255, 255, 255, 0.94);
+  --panel-border: rgba(100, 116, 139, 0.22);
 }
 
 .dark {
@@ -34,6 +34,9 @@ body {
   background: var(--app-background);
   font-family: var(--font-sans), "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
   color: theme("colors.neutral.900");
+  font-weight: 500;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
 .dark body {
@@ -53,4 +56,41 @@ a {
   background: var(--panel-background);
   border: 1px solid var(--panel-border);
   backdrop-filter: blur(18px);
+  box-shadow:
+    0 18px 48px rgba(15, 23, 42, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.24);
+}
+
+.panel-grid {
+  position: relative;
+}
+
+.panel-grid::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background-image:
+    linear-gradient(rgba(148, 163, 184, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(148, 163, 184, 0.05) 1px, transparent 1px);
+  background-position: center;
+  background-size: 24px 24px;
+  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.38), transparent 85%);
+}
+
+.rise-in {
+  animation: rise-in 220ms ease-out;
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }

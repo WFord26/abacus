@@ -107,6 +107,10 @@ function createMembershipWithOrganization(
 
 function createRepository(state: TestState): IdentityRepository {
   return {
+    async countRegisteredUsers() {
+      return [...state.users.values()].filter((user) => user.passwordHash !== null).length;
+    },
+
     async createUser(input) {
       const user = createUser({
         email: input.email,
@@ -631,6 +635,40 @@ describe("identity-service T-021 auth routes", () => {
     expect(response.body.data.tokens.accessToken).toEqual(expect.any(String));
     expect(response.body.data.tokens.refreshToken).toEqual(expect.any(String));
     expect(getCookieHeader(response)).toContain("abacus_refresh_token=");
+  });
+
+  it("reports bootstrap availability before the first auth account exists", async () => {
+    const response = await request(app.server).get("/auth/bootstrap-status");
+
+    expect(response.status).toBe(200);
+    expect(response.body.data.available).toBe(true);
+  });
+
+  it("bootstraps the first admin account only once", async () => {
+    const firstResponse = await request(app.server).post("/auth/bootstrap-admin").send({
+      email: "bootstrap.admin@example.com",
+      name: "Bootstrap Admin",
+      password: "password123",
+    });
+
+    expect(firstResponse.status).toBe(201);
+    expect(firstResponse.body.data.user.email).toBe("bootstrap.admin@example.com");
+    expect(firstResponse.body.data.user.passwordHash).toBeUndefined();
+    expect(firstResponse.body.data.organization.name).toBe("Bootstrap Admin's Workspace");
+
+    const secondResponse = await request(app.server).post("/auth/bootstrap-admin").send({
+      email: "second.admin@example.com",
+      name: "Second Admin",
+      password: "password123",
+    });
+
+    expect(secondResponse.status).toBe(409);
+    expect(secondResponse.body.error.code).toBe("BOOTSTRAP_UNAVAILABLE");
+
+    const statusResponse = await request(app.server).get("/auth/bootstrap-status");
+
+    expect(statusResponse.status).toBe(200);
+    expect(statusResponse.body.data.available).toBe(false);
   });
 
   it("logs in with valid credentials and rejects invalid passwords", async () => {

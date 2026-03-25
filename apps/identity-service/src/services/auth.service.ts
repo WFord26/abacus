@@ -34,6 +34,10 @@ type AuthSessionResponse = {
   user: User;
 };
 
+type BootstrapStatusResponse = {
+  available: boolean;
+};
+
 function slugify(value: string) {
   const slug = value
     .toLowerCase()
@@ -133,7 +137,69 @@ export function createAuthService(
     return membership;
   }
 
+  async function isBootstrapAvailable() {
+    return (await repository.countRegisteredUsers()) === 0;
+  }
+
+  async function registerUser(input: RegisterRequest): Promise<AuthSessionResponse> {
+    const normalizedEmail = input.email.toLowerCase();
+    const existingUser = await repository.findUserByEmail(normalizedEmail);
+
+    if (existingUser?.passwordHash) {
+      throw new IdentityServiceError("CONFLICT", "An account already exists for this email", 409);
+    }
+
+    const passwordHash = await options.passwordHasher.hash(input.password);
+    const user = existingUser
+      ? await repository.updateUserAuth(existingUser.id, {
+          emailVerified: false,
+          name: input.name,
+          passwordHash,
+        })
+      : await repository.createUser({
+          email: normalizedEmail,
+          emailVerified: false,
+          name: input.name,
+          passwordHash,
+        });
+
+    const organizationName = createPersonalOrganizationName(input.name, normalizedEmail);
+    const slug = await buildUniqueSlug(organizationName);
+    const organizationResult = await repository.createOrganizationWithOwnerMembership({
+      name: organizationName,
+      ownerUserId: user.id,
+      slug,
+    });
+
+    return issueSessionForMembership({
+      membership: {
+        organization: organizationResult.organization,
+        role: organizationResult.membership.role,
+        userId: user.id,
+      },
+      user,
+    });
+  }
+
   return {
+    async bootstrapAdmin(input: RegisterRequest): Promise<AuthSessionResponse> {
+      if (!(await isBootstrapAvailable())) {
+        throw new IdentityServiceError(
+          "BOOTSTRAP_UNAVAILABLE",
+          "Bootstrap admin creation is only available before the first account exists",
+          409
+        );
+      }
+
+      return registerUser(input);
+    },
+
+    async getBootstrapStatus(): Promise<BootstrapStatusResponse> {
+      return {
+        available: await isBootstrapAvailable(),
+      };
+    },
+
     async login(input: LoginRequest): Promise<AuthSessionResponse> {
       const user = await repository.findUserByEmail(input.email.toLowerCase());
 
@@ -244,43 +310,7 @@ export function createAuthService(
     },
 
     async register(input: RegisterRequest): Promise<AuthSessionResponse> {
-      const normalizedEmail = input.email.toLowerCase();
-      const existingUser = await repository.findUserByEmail(normalizedEmail);
-
-      if (existingUser?.passwordHash) {
-        throw new IdentityServiceError("CONFLICT", "An account already exists for this email", 409);
-      }
-
-      const passwordHash = await options.passwordHasher.hash(input.password);
-      const user = existingUser
-        ? await repository.updateUserAuth(existingUser.id, {
-            emailVerified: false,
-            name: input.name,
-            passwordHash,
-          })
-        : await repository.createUser({
-            email: normalizedEmail,
-            emailVerified: false,
-            name: input.name,
-            passwordHash,
-          });
-
-      const organizationName = createPersonalOrganizationName(input.name, normalizedEmail);
-      const slug = await buildUniqueSlug(organizationName);
-      const organizationResult = await repository.createOrganizationWithOwnerMembership({
-        name: organizationName,
-        ownerUserId: user.id,
-        slug,
-      });
-
-      return issueSessionForMembership({
-        membership: {
-          organization: organizationResult.organization,
-          role: organizationResult.membership.role,
-          userId: user.id,
-        },
-        user,
-      });
+      return registerUser(input);
     },
   };
 }

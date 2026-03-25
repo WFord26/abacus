@@ -35,6 +35,7 @@ export type CreatePendingMembershipInput = {
 };
 
 export type IdentityRepository = {
+  countRegisteredUsers(): Promise<number>;
   createUser(input: {
     email: string;
     emailVerified?: boolean;
@@ -192,6 +193,16 @@ function toMembershipWithOrganizationRecord(membership: {
 
 export function createPrismaIdentityRepository(db: PrismaClient): IdentityRepository {
   return {
+    async countRegisteredUsers() {
+      return db.user.count({
+        where: {
+          passwordHash: {
+            not: null,
+          },
+        },
+      });
+    },
+
     async createUser(input) {
       const user = await db.user.create({
         data: {

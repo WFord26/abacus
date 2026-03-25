@@ -178,4 +178,31 @@ describe("api-gateway T-031 identity routing", () => {
     expect(response.status).toBe(503);
     expect(response.body.error.code).toBe("SERVICE_UNAVAILABLE");
   });
+
+  it("allows local loopback aliases for the configured frontend origin", async () => {
+    await app.close();
+
+    app = buildApiGateway({
+      config: {
+        frontendOrigin: "http://127.0.0.1:3007",
+        jwtSecret: JWT_SECRET,
+        serviceUrls: {
+          identity: "http://identity-service:3001",
+        },
+      },
+      fetchImpl: fetchMock as typeof fetch,
+    });
+
+    await app.ready();
+
+    const response = await request(app.server)
+      .options("/api/v1/auth/login")
+      .set("Origin", "http://localhost:3007")
+      .set("Access-Control-Request-Method", "POST");
+
+    expect(response.status).toBe(204);
+    expect(response.headers["access-control-allow-origin"]).toBe("http://localhost:3007");
+    expect(response.headers["access-control-allow-credentials"]).toBe("true");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
 });
