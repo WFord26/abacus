@@ -1,57 +1,19 @@
 import { spawn } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const repoRoot = resolve(__dirname, "..");
-const envFilePath = resolve(repoRoot, ".env");
-
-function parseEnvFile(filePath) {
-  if (!existsSync(filePath)) {
-    return {};
-  }
-
-  const raw = readFileSync(filePath, "utf8");
-  const env = {};
-
-  for (const line of raw.split(/\r?\n/u)) {
-    const trimmed = line.trim();
-
-    if (!trimmed || trimmed.startsWith("#")) {
-      continue;
-    }
-
-    const separatorIndex = trimmed.indexOf("=");
-
-    if (separatorIndex === -1) {
-      continue;
-    }
-
-    const key = trimmed.slice(0, separatorIndex).trim();
-    let value = trimmed.slice(separatorIndex + 1).trim();
-
-    if (
-      (value.startsWith('"') && value.endsWith('"')) ||
-      (value.startsWith("'") && value.endsWith("'"))
-    ) {
-      value = value.slice(1, -1);
-    }
-
-    env[key] = value;
-  }
-
-  return env;
-}
+import {
+  formatValidationErrors,
+  loadLocalEnv,
+  repoRoot,
+  resolveLocalEnv,
+  validateLocalEnv,
+} from "./lib/local-setup.mjs";
 
 function startService(label, extraEnv, args) {
   const child = spawn("npx", ["--yes", "pnpm", ...args], {
     cwd: repoRoot,
     env: {
       ...process.env,
-      ...fileEnv,
-      HOST: fileEnv.HOST ?? "127.0.0.1",
-      NODE_ENV: fileEnv.NODE_ENV ?? "development",
+      ...resolvedEnv,
       ...extraEnv,
     },
     stdio: "inherit",
@@ -99,9 +61,18 @@ function shutdown(exitCode = 0) {
   }, 50).unref();
 }
 
-const fileEnv = parseEnvFile(envFilePath);
+const { fileEnv } = loadLocalEnv();
+const resolvedEnv = resolveLocalEnv(fileEnv);
+const validationErrors = validateLocalEnv(resolvedEnv);
 const children = [];
 let shuttingDown = false;
+
+if (validationErrors.length > 0) {
+  console.error(
+    "Local environment validation failed:\n" + formatValidationErrors(validationErrors)
+  );
+  process.exit(1);
+}
 
 process.on("SIGINT", () => shutdown(0));
 process.on("SIGTERM", () => shutdown(0));
@@ -110,10 +81,13 @@ children.push(
   startService(
     "identity",
     {
-      DATABASE_URL: fileEnv.DATABASE_URL ?? fileEnv.IDENTITY_DATABASE_URL ?? "",
-      REDIS_URL: fileEnv.REDIS_URL ?? "redis://localhost:16379",
-      JWT_SECRET: fileEnv.JWT_SECRET ?? "development-secret",
-      PORT: fileEnv.IDENTITY_PORT ?? "3001",
+      DATABASE_URL: fileEnv.DATABASE_URL ?? resolvedEnv.IDENTITY_DATABASE_URL,
+      FRONTEND_ORIGIN: resolvedEnv.FRONTEND_ORIGIN,
+      PORT: resolvedEnv.IDENTITY_PORT,
+      REDIS_URL: resolvedEnv.REDIS_URL,
+      RESEND_API_KEY: resolvedEnv.RESEND_API_KEY,
+      RESEND_FROM_EMAIL: resolvedEnv.RESEND_FROM_EMAIL,
+      ...(resolvedEnv.RESEND_REPLY_TO ? { RESEND_REPLY_TO: resolvedEnv.RESEND_REPLY_TO } : {}),
     },
     ["--filter", "@wford26/accounting-identity-service", "dev"]
   )
@@ -123,11 +97,9 @@ children.push(
   startService(
     "ledger",
     {
-      DATABASE_URL:
-        fileEnv.LEDGER_DATABASE_URL ??
-        "postgresql://postgres:postgres@localhost:15432/accounting?schema=ledger",
-      JWT_SECRET: fileEnv.JWT_SECRET ?? "development-secret",
-      PORT: fileEnv.LEDGER_PORT ?? "3002",
+      DATABASE_URL: resolvedEnv.LEDGER_DATABASE_URL,
+      PORT: resolvedEnv.LEDGER_PORT,
+      REDIS_URL: resolvedEnv.REDIS_URL,
     },
     ["--filter", "@wford26/accounting-ledger-service", "dev"]
   )
@@ -137,20 +109,17 @@ children.push(
   startService(
     "documents",
     {
-      DATABASE_URL:
-        fileEnv.DOCUMENTS_DATABASE_URL ??
-        "postgresql://postgres:postgres@localhost:15432/accounting?schema=documents",
-      DOCUMENTS_BUCKET: fileEnv.DOCUMENTS_BUCKET ?? "accounting-documents",
-      MINIO_API_URL: fileEnv.MINIO_API_URL ?? "http://127.0.0.1:9000",
-      MINIO_ROOT_PASSWORD: fileEnv.MINIO_ROOT_PASSWORD ?? "minioadmin",
-      MINIO_ROOT_USER: fileEnv.MINIO_ROOT_USER ?? "minioadmin",
-      PORT: fileEnv.DOCUMENTS_PORT ?? "3004",
-      REDIS_URL: fileEnv.REDIS_URL ?? "redis://localhost:16379",
-      S3_ACCESS_KEY_ID: fileEnv.S3_ACCESS_KEY_ID ?? fileEnv.MINIO_ROOT_USER ?? "minioadmin",
-      S3_ENDPOINT: fileEnv.S3_ENDPOINT ?? fileEnv.MINIO_API_URL ?? "http://127.0.0.1:9000",
-      S3_REGION: fileEnv.S3_REGION ?? "us-east-1",
-      S3_SECRET_ACCESS_KEY:
-        fileEnv.S3_SECRET_ACCESS_KEY ?? fileEnv.MINIO_ROOT_PASSWORD ?? "minioadmin",
+      DATABASE_URL: resolvedEnv.DOCUMENTS_DATABASE_URL,
+      DOCUMENTS_BUCKET: resolvedEnv.DOCUMENTS_BUCKET,
+      MINIO_API_URL: resolvedEnv.MINIO_API_URL,
+      MINIO_ROOT_PASSWORD: resolvedEnv.MINIO_ROOT_PASSWORD,
+      MINIO_ROOT_USER: resolvedEnv.MINIO_ROOT_USER,
+      PORT: resolvedEnv.DOCUMENTS_PORT,
+      REDIS_URL: resolvedEnv.REDIS_URL,
+      S3_ACCESS_KEY_ID: resolvedEnv.S3_ACCESS_KEY_ID,
+      S3_ENDPOINT: resolvedEnv.S3_ENDPOINT,
+      S3_REGION: resolvedEnv.S3_REGION,
+      S3_SECRET_ACCESS_KEY: resolvedEnv.S3_SECRET_ACCESS_KEY,
     },
     ["--filter", "@wford26/accounting-documents-service", "dev"]
   )
@@ -160,20 +129,17 @@ children.push(
   startService(
     "reporting",
     {
-      DATABASE_URL:
-        fileEnv.REPORTING_DATABASE_URL ??
-        "postgresql://postgres:postgres@localhost:15432/accounting?schema=reporting",
-      MINIO_API_URL: fileEnv.MINIO_API_URL ?? "http://127.0.0.1:9000",
-      MINIO_ROOT_PASSWORD: fileEnv.MINIO_ROOT_PASSWORD ?? "minioadmin",
-      MINIO_ROOT_USER: fileEnv.MINIO_ROOT_USER ?? "minioadmin",
-      PORT: fileEnv.REPORTING_PORT ?? "3003",
-      REDIS_URL: fileEnv.REDIS_URL ?? "redis://localhost:16379",
-      REPORTS_BUCKET: fileEnv.REPORTS_BUCKET ?? "accounting-reports",
-      S3_ACCESS_KEY_ID: fileEnv.S3_ACCESS_KEY_ID ?? fileEnv.MINIO_ROOT_USER ?? "minioadmin",
-      S3_ENDPOINT: fileEnv.S3_ENDPOINT ?? fileEnv.MINIO_API_URL ?? "http://127.0.0.1:9000",
-      S3_REGION: fileEnv.S3_REGION ?? "us-east-1",
-      S3_SECRET_ACCESS_KEY:
-        fileEnv.S3_SECRET_ACCESS_KEY ?? fileEnv.MINIO_ROOT_PASSWORD ?? "minioadmin",
+      DATABASE_URL: resolvedEnv.REPORTING_DATABASE_URL,
+      MINIO_API_URL: resolvedEnv.MINIO_API_URL,
+      MINIO_ROOT_PASSWORD: resolvedEnv.MINIO_ROOT_PASSWORD,
+      MINIO_ROOT_USER: resolvedEnv.MINIO_ROOT_USER,
+      PORT: resolvedEnv.REPORTING_PORT,
+      REDIS_URL: resolvedEnv.REDIS_URL,
+      REPORTS_BUCKET: resolvedEnv.REPORTS_BUCKET,
+      S3_ACCESS_KEY_ID: resolvedEnv.S3_ACCESS_KEY_ID,
+      S3_ENDPOINT: resolvedEnv.S3_ENDPOINT,
+      S3_REGION: resolvedEnv.S3_REGION,
+      S3_SECRET_ACCESS_KEY: resolvedEnv.S3_SECRET_ACCESS_KEY,
     },
     ["--filter", "@wford26/accounting-reporting-service", "dev"]
   )
@@ -183,20 +149,17 @@ children.push(
   startService(
     "invoicing",
     {
-      DATABASE_URL:
-        fileEnv.INVOICING_DATABASE_URL ??
-        "postgresql://postgres:postgres@localhost:15432/accounting?schema=invoicing",
-      INVOICES_BUCKET: fileEnv.INVOICES_BUCKET ?? "accounting-invoices",
-      MINIO_API_URL: fileEnv.MINIO_API_URL ?? "http://127.0.0.1:9000",
-      MINIO_ROOT_PASSWORD: fileEnv.MINIO_ROOT_PASSWORD ?? "minioadmin",
-      MINIO_ROOT_USER: fileEnv.MINIO_ROOT_USER ?? "minioadmin",
-      PORT: fileEnv.INVOICING_PORT ?? "3006",
-      REDIS_URL: fileEnv.REDIS_URL ?? "redis://localhost:16379",
-      S3_ACCESS_KEY_ID: fileEnv.S3_ACCESS_KEY_ID ?? fileEnv.MINIO_ROOT_USER ?? "minioadmin",
-      S3_ENDPOINT: fileEnv.S3_ENDPOINT ?? fileEnv.MINIO_API_URL ?? "http://127.0.0.1:9000",
-      S3_REGION: fileEnv.S3_REGION ?? "us-east-1",
-      S3_SECRET_ACCESS_KEY:
-        fileEnv.S3_SECRET_ACCESS_KEY ?? fileEnv.MINIO_ROOT_PASSWORD ?? "minioadmin",
+      DATABASE_URL: resolvedEnv.INVOICING_DATABASE_URL,
+      INVOICES_BUCKET: resolvedEnv.INVOICES_BUCKET,
+      MINIO_API_URL: resolvedEnv.MINIO_API_URL,
+      MINIO_ROOT_PASSWORD: resolvedEnv.MINIO_ROOT_PASSWORD,
+      MINIO_ROOT_USER: resolvedEnv.MINIO_ROOT_USER,
+      PORT: resolvedEnv.INVOICING_PORT,
+      REDIS_URL: resolvedEnv.REDIS_URL,
+      S3_ACCESS_KEY_ID: resolvedEnv.S3_ACCESS_KEY_ID,
+      S3_ENDPOINT: resolvedEnv.S3_ENDPOINT,
+      S3_REGION: resolvedEnv.S3_REGION,
+      S3_SECRET_ACCESS_KEY: resolvedEnv.S3_SECRET_ACCESS_KEY,
     },
     ["--filter", "@wford26/accounting-invoicing-service", "dev"]
   )
@@ -206,14 +169,13 @@ children.push(
   startService(
     "gateway",
     {
-      FRONTEND_ORIGIN: fileEnv.FRONTEND_ORIGIN ?? "http://127.0.0.1:3007",
-      IDENTITY_SERVICE_URL: fileEnv.IDENTITY_SERVICE_URL ?? "http://127.0.0.1:3001",
-      LEDGER_SERVICE_URL: fileEnv.LEDGER_SERVICE_URL ?? "http://127.0.0.1:3002",
-      DOCUMENTS_SERVICE_URL: fileEnv.DOCUMENTS_SERVICE_URL ?? "http://127.0.0.1:3004",
-      REPORTING_SERVICE_URL: fileEnv.REPORTING_SERVICE_URL ?? "http://127.0.0.1:3003",
-      INVOICING_SERVICE_URL: fileEnv.INVOICING_SERVICE_URL ?? "http://127.0.0.1:3006",
-      JWT_SECRET: fileEnv.JWT_SECRET ?? "development-secret",
-      PORT: fileEnv.API_GATEWAY_PORT ?? "3000",
+      DOCUMENTS_SERVICE_URL: resolvedEnv.DOCUMENTS_SERVICE_URL,
+      FRONTEND_ORIGIN: resolvedEnv.FRONTEND_ORIGIN,
+      IDENTITY_SERVICE_URL: resolvedEnv.IDENTITY_SERVICE_URL,
+      INVOICING_SERVICE_URL: resolvedEnv.INVOICING_SERVICE_URL,
+      LEDGER_SERVICE_URL: resolvedEnv.LEDGER_SERVICE_URL,
+      PORT: resolvedEnv.API_GATEWAY_PORT,
+      REPORTING_SERVICE_URL: resolvedEnv.REPORTING_SERVICE_URL,
     },
     ["--filter", "@wford26/accounting-api-gateway", "dev"]
   )
@@ -223,8 +185,8 @@ children.push(
   startService(
     "web",
     {
-      NEXT_PUBLIC_API_BASE_URL: fileEnv.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:3000/api/v1",
-      PORT: fileEnv.WEB_PORT ?? "3007",
+      NEXT_PUBLIC_API_BASE_URL: resolvedEnv.NEXT_PUBLIC_API_BASE_URL,
+      PORT: resolvedEnv.WEB_PORT,
     },
     ["--filter", "@wford26/accounting-web", "dev"]
   )

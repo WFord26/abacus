@@ -34,13 +34,26 @@ npx --yes pnpm typecheck
 npx --yes pnpm test
 ```
 
-### Bring up infrastructure
+### Bootstrap local infrastructure
 
 ```bash
-docker compose -f infrastructure/docker/docker-compose.yml up -d
-docker compose -f infrastructure/docker/docker-compose.yml exec -T postgres \
-  psql -U postgres -d accounting -v ON_ERROR_STOP=1 \
-  < apps/identity-service/prisma/migrations/0001_init/migration.sql
+npm run env:check -- --fix
+npm run bootstrap:local
+```
+
+That automation will:
+
+- create [`.env`](/Users/will/git/abacus/.env) from [.env.example](/Users/will/git/abacus/.env.example) when missing
+- validate the local env shape before startup
+- start Docker infrastructure for PostgreSQL, Redis, MinIO, and MailHog
+- wait for the local infra ports to come online
+- apply Prisma migrations for identity, ledger, documents, reporting, and invoicing
+
+You can also run the steps individually:
+
+```bash
+npm run env:check
+npm run migrate:all
 ```
 
 ### Start the implemented apps
@@ -61,16 +74,23 @@ That root launcher reads [`.env`](/Users/will/git/abacus/.env) and starts:
 - API gateway on `127.0.0.1:3000`
 - web on `127.0.0.1:3007`
 
-For a fresh local environment with no existing auth accounts, you can create the first owner account with:
+After the services are running, a fresh local environment with no existing auth accounts can seed
+the first owner account with:
 
 ```bash
-curl -X POST http://127.0.0.1:3000/api/v1/auth/bootstrap-admin \
-  -H 'content-type: application/json' \
-  -d '{"email":"admin@example.com","name":"Admin","password":"password123"}'
+npm run seed:local
 ```
 
-The web app now detects that bootstrap state automatically and routes fresh environments to
-`/bootstrap` instead of the normal sign-in screen.
+By default that creates:
+
+- Email: `admin@example.com`
+- Password: `password123`
+
+Override those values in [`.env`](/Users/will/git/abacus/.env) with `SEED_ADMIN_EMAIL`,
+`SEED_ADMIN_NAME`, and `SEED_ADMIN_PASSWORD` if you want a different bootstrap user.
+
+The web app still detects bootstrap state automatically and routes fresh environments to
+`/bootstrap` when no auth account exists yet.
 
 Identity email delivery now supports Resend-backed invite emails, verification emails, and
 magic-link sign-in when these env vars are set:

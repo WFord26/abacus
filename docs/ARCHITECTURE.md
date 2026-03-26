@@ -1246,10 +1246,10 @@ splits, or duplicate detection in CSV imports.
       organization profile. The shell settings hub and pending-invite banner now link directly into
       that UI.
 
-- [ ] **Currently missing — Environment bootstrap and migration automation**
-      Local startup still depends on manual migration and environment setup steps. The repo does not
-      yet provide the bootstrap, migrate-all, seed, or environment validation tooling expected for a
-      repeatable Stage 1 or Stage 2 setup.
+- [x] **Currently missing — Environment bootstrap and migration automation**
+      The repo now ships root local-setup commands for env validation, Docker infra bootstrap,
+      migrate-all, and first-admin seeding. `.env` can be created from `.env.example`, local
+      services share one env resolver, and the README now documents the repeatable bootstrap path.
 
 - [ ] **Currently missing — Architecture-to-code sync pass**
       The dependency graph and checklist have drifted apart in a few places, and the checklist no
@@ -1260,7 +1260,6 @@ splits, or duplicate detection in CSV imports.
 
 - `T-014` — Service containerization + Dockerfiles for all deployable apps
 - `T-015` — Azure IaC scaffold (`infrastructure/bicep`, params, deploy scripts)
-- `T-016` — Workspace bootstrap + migrate-all + seed automation
 - `T-132` — Ledger consumer for `invoice.paid` income transaction creation
 - `T-007` — Architecture doc synchronization and registry reconciliation
 

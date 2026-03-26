@@ -1,6 +1,6 @@
 {
   "name": "abacus",
-  "version": "2026.03.26",
+  "version": "2026.03.26.1",
   "private": true,
   "packageManager": "pnpm@10.6.5",
   "workspaces": [
@@ -8,8 +8,12 @@
     "packages/*"
   ],
   "scripts": {
+    "bootstrap:local": "node scripts/bootstrap-local.mjs",
     "dev": "node scripts/dev.mjs",
+    "env:check": "node scripts/env-check.mjs",
     "build": "turbo run build",
+    "migrate:all": "node scripts/migrate-all.mjs",
+    "seed:local": "node scripts/seed-local.mjs",
     "test": "turbo run test",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
