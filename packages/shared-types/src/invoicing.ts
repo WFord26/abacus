@@ -10,6 +10,7 @@ export type Customer = {
   phone?: string | null;
   address?: Record<string, string | null> | null;
   createdAt: string;
+  updatedAt: string;
 };
 
 export type InvoiceLine = {
@@ -30,11 +31,28 @@ export type Invoice = {
   issueDate?: string | null;
   dueDate?: string | null;
   subtotal: number;
+  taxRate: number;
   tax: number;
   total: number;
   notes?: string | null;
   createdAt: string;
+  updatedAt: string;
   lineItems?: InvoiceLine[];
+};
+
+export type CustomerListItem = Customer & {
+  invoiceCount: number;
+  outstandingBalance: number;
+};
+
+export type InvoiceDetail = Invoice & {
+  customer: Customer | null;
+  lineItems: InvoiceLine[];
+};
+
+export type InvoicePdfResponse = {
+  downloadUrl: string;
+  downloadUrlExpiresAt: string;
 };
 
 export type PaymentRecord = {

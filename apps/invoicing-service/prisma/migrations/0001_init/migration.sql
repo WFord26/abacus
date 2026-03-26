@@ -9,7 +9,8 @@ CREATE TABLE IF NOT EXISTS invoicing.customers (
   email TEXT,
   phone TEXT,
   address JSONB,
-  created_at TIMESTAMPTZ DEFAULT NOW()
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS invoicing.invoices (
@@ -21,10 +22,13 @@ CREATE TABLE IF NOT EXISTS invoicing.invoices (
   issue_date DATE,
   due_date DATE,
   subtotal NUMERIC(15, 2),
+  tax_rate NUMERIC(5, 2) DEFAULT 0,
   tax NUMERIC(15, 2) DEFAULT 0,
   total NUMERIC(15, 2),
   notes TEXT,
-  created_at TIMESTAMPTZ DEFAULT NOW()
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE (organization_id, invoice_number)
 );
 
 CREATE TABLE IF NOT EXISTS invoicing.invoice_lines (

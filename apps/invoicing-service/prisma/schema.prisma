@@ -15,6 +15,7 @@ model Customer {
   phone          String?
   address        Json?
   createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   invoices       Invoice[]
 
   @@map("customers")
@@ -29,13 +30,16 @@ model Invoice {
   issueDate      DateTime?     @map("issue_date") @db.Date
   dueDate        DateTime?     @map("due_date") @db.Date
   subtotal       Decimal?      @db.Decimal(15, 2)
+  taxRate        Decimal?      @default(0) @map("tax_rate") @db.Decimal(5, 2)
   tax            Decimal?      @default(0) @db.Decimal(15, 2)
   total          Decimal?      @db.Decimal(15, 2)
   notes          String?
   createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   customer       Customer?     @relation(fields: [customerId], references: [id])
   invoiceLines   InvoiceLine[]
 
+  @@unique([organizationId, invoiceNumber])
   @@map("invoices")
 }
 
