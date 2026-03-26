@@ -5,30 +5,95 @@ import request from "supertest";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { buildReportingServiceApp } from "../../src/app";
+import { createInMemoryReportingDashboardCache } from "../../src/lib/cache";
 
 import type { ReportingEventSubscriber } from "../../src/lib/events";
+import type { ReportingExportJobQueue } from "../../src/lib/export-queue";
 import type {
+  DashboardLedgerSnapshot,
   ReportingMetricAggregate,
   ReportingMetricsRepository,
+  ReportExportTransactionRow,
 } from "../../src/repositories/reporting.repo";
+import type { ReportExportJobResponse, ReportExportJobStatus } from "@wford26/shared-types";
 
 const JWT_SECRET = "reporting-test-secret";
 
 type RepoState = {
+  dashboardLookupCount: number;
+  dashboardSnapshot: DashboardLedgerSnapshot;
+  exportRows: ReportExportTransactionRow[];
+  metricLookupCount: number;
   metrics: ReportingMetricAggregate[];
 };
 
 function createRepository(state: RepoState): ReportingMetricsRepository {
   return {
+    async getDashboardLedgerSnapshot() {
+      state.dashboardLookupCount += 1;
+      return state.dashboardSnapshot;
+    },
     async listLedgerExpenseTransactionsForOrganization() {
       return [];
     },
     async listMetricAggregatesForOrganizationPeriod(organizationId, period) {
+      state.metricLookupCount += 1;
       return state.metrics.filter(
         (metric) => metric.organizationId === organizationId && metric.period === period
       );
     },
+    async listTransactionsForExport() {
+      return state.exportRows;
+    },
     async replaceMetricAggregatesForOrganization() {
+      return;
+    },
+  };
+}
+
+type ExportQueueState = {
+  jobs: Map<
+    string,
+    ReportExportJobResponse & {
+      organizationId: string;
+    }
+  >;
+};
+
+function createExportQueue(state: ExportQueueState): ReportingExportJobQueue {
+  return {
+    async enqueueCsvExport(input) {
+      const jobId = randomUUID();
+      state.jobs.set(jobId, {
+        createdAt: "2026-03-25T12:00:00.000Z",
+        errorMessage: null,
+        jobId,
+        organizationId: input.organizationId,
+        status: "pending",
+      });
+
+      return {
+        jobId,
+        status: "pending",
+      };
+    },
+
+    async getCsvExportJob(jobId, organizationId) {
+      const job = state.jobs.get(jobId);
+
+      if (!job || job.organizationId !== organizationId) {
+        return null;
+      }
+
+      const { organizationId: _organizationId, ...response } = job;
+      return response;
+    },
+
+    async start() {
+      return;
+    },
+
+    async stop() {
       return;
     },
   };
@@ -69,10 +134,23 @@ describe("reporting service pnl route", () => {
   const otherOrganizationId = randomUUID();
   const userId = randomUUID();
   let state: RepoState;
+  let exportQueueState: ExportQueueState;
 
   beforeEach(() => {
     state = {
+      dashboardLookupCount: 0,
+      dashboardSnapshot: {
+        accountBalances: [],
+        recentTransactions: [],
+        uncategorizedCount: 0,
+        unreviewedCount: 0,
+      },
+      exportRows: [],
+      metricLookupCount: 0,
       metrics: [],
+    };
+    exportQueueState = {
+      jobs: new Map(),
     };
   });
 
@@ -95,8 +173,11 @@ describe("reporting service pnl route", () => {
 
   it("returns an empty pnl report for periods with no aggregates", async () => {
     const app = buildReportingServiceApp({
+      dashboardCache: createInMemoryReportingDashboardCache(),
       eventSubscriber: createNoopSubscriber(),
+      exportQueue: createExportQueue(exportQueueState),
       jwtSecret: JWT_SECRET,
+      now: () => new Date("2026-03-25T12:00:00.000Z"),
       repository: createRepository(state),
     });
 
@@ -159,8 +240,11 @@ describe("reporting service pnl route", () => {
     ];
 
     const app = buildReportingServiceApp({
+      dashboardCache: createInMemoryReportingDashboardCache(),
       eventSubscriber: createNoopSubscriber(),
+      exportQueue: createExportQueue(exportQueueState),
       jwtSecret: JWT_SECRET,
+      now: () => new Date("2026-03-25T12:00:00.000Z"),
       repository: createRepository(state),
     });
 
@@ -197,8 +281,11 @@ describe("reporting service pnl route", () => {
 
   it("rejects invalid period formats", async () => {
     const app = buildReportingServiceApp({
+      dashboardCache: createInMemoryReportingDashboardCache(),
       eventSubscriber: createNoopSubscriber(),
+      exportQueue: createExportQueue(exportQueueState),
       jwtSecret: JWT_SECRET,
+      now: () => new Date("2026-03-25T12:00:00.000Z"),
       repository: createRepository(state),
     });
 
@@ -255,8 +342,11 @@ describe("reporting service pnl route", () => {
     ];
 
     const app = buildReportingServiceApp({
+      dashboardCache: createInMemoryReportingDashboardCache(),
       eventSubscriber: createNoopSubscriber(),
+      exportQueue: createExportQueue(exportQueueState),
       jwtSecret: JWT_SECRET,
+      now: () => new Date("2026-03-25T12:00:00.000Z"),
       repository: createRepository(state),
     });
 
@@ -341,8 +431,11 @@ describe("reporting service pnl route", () => {
     ];
 
     const app = buildReportingServiceApp({
+      dashboardCache: createInMemoryReportingDashboardCache(),
       eventSubscriber: createNoopSubscriber(),
+      exportQueue: createExportQueue(exportQueueState),
       jwtSecret: JWT_SECRET,
+      now: () => new Date("2026-03-25T12:00:00.000Z"),
       repository: createRepository(state),
     });
 
@@ -365,6 +458,182 @@ describe("reporting service pnl route", () => {
         transactionCount: 4,
       },
     ]);
+
+    await app.close();
+  });
+
+  it("returns a cached dashboard summary composed from metrics and ledger snapshot data", async () => {
+    state.metrics = [
+      createMetric({
+        computedAt: "2026-03-25T10:00:00.000Z",
+        metricKey: "total_expenses:2026-03",
+        organizationId,
+        period: "2026-03",
+        value: 1200,
+      }),
+      createMetric({
+        computedAt: "2026-03-25T10:05:00.000Z",
+        metricKey: "total_expenses:2026-02",
+        organizationId,
+        period: "2026-02",
+        value: 1000,
+      }),
+      createMetric({
+        computedAt: "2026-03-25T10:10:00.000Z",
+        metricKey: "category_spend:software:2026-03",
+        metadata: {
+          categoryId: "software",
+          categoryName: "Software",
+        },
+        organizationId,
+        period: "2026-03",
+        value: 700,
+      }),
+    ];
+    state.dashboardSnapshot = {
+      accountBalances: [
+        {
+          accountId: "account-1",
+          accountName: "Checking Account",
+          accountType: "cash",
+          asOf: "2026-03-25T12:00:00.000Z",
+          balance: 4500,
+        },
+      ],
+      recentTransactions: [
+        {
+          accountId: "account-1",
+          accountName: "Checking Account",
+          amount: -42.5,
+          categoryId: "software",
+          categoryName: "Software",
+          createdAt: "2026-03-24T12:00:00.000Z",
+          date: "2026-03-24",
+          description: "Monthly tool",
+          id: "txn-1",
+          merchantRaw: "Linear",
+          reviewStatus: "reviewed",
+        },
+      ],
+      uncategorizedCount: 2,
+      unreviewedCount: 4,
+    };
+    const app = buildReportingServiceApp({
+      dashboardCache: createInMemoryReportingDashboardCache(),
+      eventSubscriber: createNoopSubscriber(),
+      exportQueue: createExportQueue(exportQueueState),
+      jwtSecret: JWT_SECRET,
+      now: () => new Date("2026-03-25T12:00:00.000Z"),
+      repository: createRepository(state),
+    });
+
+    await app.ready();
+
+    const firstResponse = await request(app.server)
+      .get("/reports/dashboard")
+      .set("authorization", `Bearer ${createAccessToken()}`);
+    const secondResponse = await request(app.server)
+      .get("/reports/dashboard")
+      .set("authorization", `Bearer ${createAccessToken()}`);
+
+    expect(firstResponse.status).toBe(200);
+    expect(firstResponse.body.data).toMatchObject({
+      currentMonth: {
+        expenseTrend: 20,
+        period: "2026-03",
+        topCategory: {
+          amount: 700,
+          categoryId: "software",
+          name: "Software",
+        },
+        totalExpenses: 1200,
+      },
+      unreviewedCount: 4,
+      uncategorizedCount: 2,
+    });
+    expect(firstResponse.body.data.accountBalances).toHaveLength(1);
+    expect(firstResponse.body.data.recentTransactions).toHaveLength(1);
+    expect(secondResponse.status).toBe(200);
+    expect(state.metricLookupCount).toBe(2);
+    expect(state.dashboardLookupCount).toBe(1);
+
+    await app.close();
+  });
+
+  it("starts and returns csv export jobs for the caller organization", async () => {
+    const app = buildReportingServiceApp({
+      dashboardCache: createInMemoryReportingDashboardCache(),
+      eventSubscriber: createNoopSubscriber(),
+      exportQueue: createExportQueue(exportQueueState),
+      jwtSecret: JWT_SECRET,
+      now: () => new Date("2026-03-25T12:00:00.000Z"),
+      repository: createRepository(state),
+    });
+
+    await app.ready();
+
+    const createResponse = await request(app.server)
+      .post("/reports/export/csv")
+      .set("authorization", `Bearer ${createAccessToken()}`);
+
+    expect(createResponse.status).toBe(202);
+    expect(createResponse.body.data.status).toBe("pending");
+
+    const jobId = createResponse.body.data.jobId as string;
+    const existingJob = exportQueueState.jobs.get(jobId);
+
+    expect(existingJob).toBeDefined();
+
+    exportQueueState.jobs.set(jobId, {
+      completedAt: "2026-03-25T12:01:00.000Z",
+      createdAt: existingJob!.createdAt,
+      downloadUrl: "https://downloads.test/reports/export.csv",
+      downloadUrlExpiresAt: "2026-03-25T13:01:00.000Z",
+      errorMessage: null,
+      jobId,
+      organizationId,
+      status: "complete",
+    });
+
+    const statusResponse = await request(app.server)
+      .get(`/reports/export/${jobId}`)
+      .set("authorization", `Bearer ${createAccessToken()}`);
+
+    expect(statusResponse.status).toBe(200);
+    expect(statusResponse.body.data).toMatchObject({
+      downloadUrl: "https://downloads.test/reports/export.csv",
+      jobId,
+      status: "complete",
+    });
+
+    await app.close();
+  });
+
+  it("does not expose export jobs across organizations", async () => {
+    const foreignJobId = randomUUID();
+    exportQueueState.jobs.set(foreignJobId, {
+      createdAt: "2026-03-25T12:00:00.000Z",
+      errorMessage: null,
+      jobId: foreignJobId,
+      organizationId: otherOrganizationId,
+      status: "pending" as ReportExportJobStatus,
+    });
+    const app = buildReportingServiceApp({
+      dashboardCache: createInMemoryReportingDashboardCache(),
+      eventSubscriber: createNoopSubscriber(),
+      exportQueue: createExportQueue(exportQueueState),
+      jwtSecret: JWT_SECRET,
+      now: () => new Date("2026-03-25T12:00:00.000Z"),
+      repository: createRepository(state),
+    });
+
+    await app.ready();
+
+    const response = await request(app.server)
+      .get(`/reports/export/${foreignJobId}`)
+      .set("authorization", `Bearer ${createAccessToken()}`);
+
+    expect(response.status).toBe(404);
 
     await app.close();
   });

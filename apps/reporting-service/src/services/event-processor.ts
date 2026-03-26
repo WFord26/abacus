@@ -1,3 +1,4 @@
+import type { ReportingDashboardCache } from "../lib/cache";
 import type {
   LedgerExpenseTransactionRow,
   ReportingMetricAggregateInput,
@@ -146,21 +147,25 @@ async function rebuildExpenseMetrics(
 
 export function createReportingEventProcessor(
   repository: ReportingMetricsRepository,
-  logger: ReportingLogger
+  logger: ReportingLogger,
+  dashboardCache?: ReportingDashboardCache
 ): ReportingEventProcessor {
   return {
     async process(event) {
       switch (event.eventType) {
         case "transaction.created":
           await rebuildExpenseMetrics(repository, event.organizationId);
+          await dashboardCache?.invalidate(event.organizationId);
           return;
 
         case "transaction.updated":
           await rebuildExpenseMetrics(repository, event.organizationId);
+          await dashboardCache?.invalidate(event.organizationId);
           return;
 
         case "expense.categorized":
           await rebuildExpenseMetrics(repository, event.organizationId);
+          await dashboardCache?.invalidate(event.organizationId);
           return;
 
         case "account.reconciled":

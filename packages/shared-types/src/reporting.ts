@@ -1,3 +1,5 @@
+import type { AccountType, ReviewStatus } from "./ledger";
+
 export type MetricAggregate = {
   id: string;
   organizationId: string;
@@ -47,12 +49,63 @@ export type VendorSpendReport = {
   generatedAt: string;
 };
 
-export type DashboardSummary = {
+export type DashboardTopCategory = {
+  categoryId?: string | null;
+  name: string;
+  amount: number;
+};
+
+export type DashboardCurrentMonthSummary = {
   period: string;
-  cashOnHand: number;
-  monthlyRevenue: number;
-  monthlyExpenses: number;
-  unreviewedTransactions: number;
-  receiptBacklog: number;
+  totalExpenses: number;
+  expenseTrend: number;
+  topCategory: DashboardTopCategory | null;
+};
+
+export type DashboardAccountBalance = {
+  accountId: string;
+  accountName: string;
+  accountType: AccountType;
+  balance: number;
+  asOf: string;
+};
+
+export type DashboardRecentTransaction = {
+  id: string;
+  accountId: string;
+  accountName: string;
+  amount: number;
+  categoryId?: string | null;
+  categoryName?: string | null;
+  createdAt: string;
+  date: string;
+  description?: string | null;
+  merchantRaw?: string | null;
+  reviewStatus: ReviewStatus;
+};
+
+export type DashboardSummary = {
+  currentMonth: DashboardCurrentMonthSummary;
+  unreviewedCount: number;
+  uncategorizedCount: number;
+  accountBalances: DashboardAccountBalance[];
+  recentTransactions: DashboardRecentTransaction[];
   generatedAt: string;
+};
+
+export type ReportExportJobStatus = "pending" | "processing" | "complete" | "failed";
+
+export type ReportExportJobStartResponse = {
+  jobId: string;
+  status: ReportExportJobStatus;
+};
+
+export type ReportExportJobResponse = {
+  jobId: string;
+  status: ReportExportJobStatus;
+  createdAt: string;
+  completedAt?: string | null;
+  downloadUrl?: string | null;
+  downloadUrlExpiresAt?: string | null;
+  errorMessage?: string | null;
 };

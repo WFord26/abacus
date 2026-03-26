@@ -2006,6 +2006,131 @@ Return the top vendors for a single accounting period.
 
 ---
 
+#### GET /api/v1/reports/dashboard
+
+Return the cached dashboard aggregate payload for the active organization.
+
+**Authentication**: Required
+
+**Response: 200 OK**:
+
+```typescript
+{
+  data: {
+    currentMonth: {
+      period: string
+      totalExpenses: number
+      expenseTrend: number
+      topCategory: {
+        categoryId?: string | null
+        name: string
+        amount: number
+      } | null
+    }
+    unreviewedCount: number
+    uncategorizedCount: number
+    accountBalances: Array<{
+      accountId: string
+      accountName: string
+      accountType: 'cash' | 'credit' | 'expense' | 'income' | 'liability' | 'equity'
+      balance: number
+      asOf: string (ISO 8601)
+    }>
+    recentTransactions: Array<{
+      id: string
+      accountId: string
+      accountName: string
+      amount: number
+      categoryId?: string | null
+      categoryName?: string | null
+      createdAt: string (ISO 8601)
+      date: string
+      description?: string | null
+      merchantRaw?: string | null
+      reviewStatus: 'unreviewed' | 'reviewed' | 'flagged'
+    }>
+    generatedAt: string (ISO 8601)
+  }
+}
+```
+
+**Notes**:
+
+- Aggregate totals come from `reporting.metric_aggregates`
+- `unreviewedCount`, `uncategorizedCount`, account balances, and recent transactions are read from the shared ledger schema
+- Responses are cached per organization for 60 seconds
+
+**Error Responses**:
+
+- `401 Unauthorized`: Missing or invalid token
+
+---
+
+#### POST /api/v1/reports/export/csv
+
+Start an asynchronous CSV export job for the active organization.
+
+**Authentication**: Required
+
+**Response: 202 Accepted**:
+
+```typescript
+{
+  data: {
+    jobId: string;
+    status: "pending";
+  }
+}
+```
+
+**Notes**:
+
+- The export file includes the columns `Date`, `Description`, `Merchant`, `Account`, `Category`, `Amount`, and `Status`
+- Jobs are queued asynchronously and can be polled via `GET /api/v1/reports/export/:jobId`
+
+**Error Responses**:
+
+- `401 Unauthorized`: Missing or invalid token
+- `503 Service Unavailable`: Export queue or storage is not configured
+
+---
+
+#### GET /api/v1/reports/export/:jobId
+
+Return the current status of a previously started CSV export job.
+
+**Authentication**: Required
+
+**Response: 200 OK**:
+
+```typescript
+{
+  data: {
+    jobId: string
+    status: 'pending' | 'processing' | 'complete' | 'failed'
+    createdAt: string (ISO 8601)
+    completedAt?: string | null
+    downloadUrl?: string | null
+    downloadUrlExpiresAt?: string | null
+    errorMessage?: string | null
+  }
+}
+```
+
+**Notes**:
+
+- `downloadUrl` and `downloadUrlExpiresAt` are only present once the job reaches `complete`
+- Signed download URLs expire after one hour
+- Jobs are organization-scoped and return `404` when the job belongs to another organization
+
+**Error Responses**:
+
+- `401 Unauthorized`: Missing or invalid token
+- `404 Not Found`: Export job does not exist for the active organization
+- `503 Service Unavailable`: Export queue or storage is not configured
+
+---
+
 ## Changelog
 
 ### [Unreleased]

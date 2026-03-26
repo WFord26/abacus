@@ -92,6 +92,11 @@ REDIS_URL='redis://localhost:16379' \
 npx --yes pnpm --filter @wford26/accounting-documents-service start
 
 DATABASE_URL='postgresql://postgres:postgres@localhost:15432/accounting?schema=reporting' \
+REPORTS_BUCKET='accounting-reports' \
+S3_ENDPOINT='http://127.0.0.1:9000' \
+S3_REGION='us-east-1' \
+S3_ACCESS_KEY_ID='minioadmin' \
+S3_SECRET_ACCESS_KEY='minioadmin' \
 REDIS_URL='redis://localhost:16379' \
 npx --yes pnpm --filter @wford26/accounting-reporting-service start
 

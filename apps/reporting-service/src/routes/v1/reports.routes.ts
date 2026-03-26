@@ -25,6 +25,14 @@ function parseLimit(value: unknown, fallback: number) {
   return parsed;
 }
 
+function parseJobId(value: unknown) {
+  if (typeof value !== "string" || value.trim().length === 0) {
+    return null;
+  }
+
+  return value;
+}
+
 type ValidatedPeriodRequest = {
   period: string;
   query: Record<string, unknown>;
@@ -143,6 +151,86 @@ const reportsRoutes: FastifyPluginAsync<ReportsRoutesOptions> = async (fastify, 
       limit
     );
     reply.send(success(report));
+  });
+
+  fastify.get("/reports/dashboard", async (request, reply) => {
+    if (!request.user) {
+      reply.status(401).send({
+        error: {
+          code: "UNAUTHORIZED",
+          message: "Authentication required",
+          statusCode: 401,
+        },
+      });
+      return;
+    }
+
+    const report = await options.service.getDashboardSummary(request.user.organizationId);
+    reply.send(success(report));
+  });
+
+  fastify.post("/reports/export/csv", async (request, reply) => {
+    if (!request.user) {
+      reply.status(401).send({
+        error: {
+          code: "UNAUTHORIZED",
+          message: "Authentication required",
+          statusCode: 401,
+        },
+      });
+      return;
+    }
+
+    const exportJob = await options.service.createCsvExportJob(
+      request.user.organizationId,
+      request.user.userId
+    );
+    reply.status(202).send(success(exportJob));
+  });
+
+  fastify.get("/reports/export/:jobId", async (request, reply) => {
+    if (!request.user) {
+      reply.status(401).send({
+        error: {
+          code: "UNAUTHORIZED",
+          message: "Authentication required",
+          statusCode: 401,
+        },
+      });
+      return;
+    }
+
+    const params =
+      typeof request.params === "object" && request.params
+        ? (request.params as Record<string, unknown>)
+        : {};
+    const jobId = parseJobId(params.jobId);
+
+    if (!jobId) {
+      reply.status(400).send({
+        error: {
+          code: "BAD_REQUEST",
+          message: "Route parameter jobId is required",
+          statusCode: 400,
+        },
+      });
+      return;
+    }
+
+    const exportJob = await options.service.getCsvExportJob(jobId, request.user.organizationId);
+
+    if (!exportJob) {
+      reply.status(404).send({
+        error: {
+          code: "NOT_FOUND",
+          message: "Export job not found",
+          statusCode: 404,
+        },
+      });
+      return;
+    }
+
+    reply.send(success(exportJob));
   });
 };
 

@@ -163,8 +163,17 @@ children.push(
       DATABASE_URL:
         fileEnv.REPORTING_DATABASE_URL ??
         "postgresql://postgres:postgres@localhost:15432/accounting?schema=reporting",
+      MINIO_API_URL: fileEnv.MINIO_API_URL ?? "http://127.0.0.1:9000",
+      MINIO_ROOT_PASSWORD: fileEnv.MINIO_ROOT_PASSWORD ?? "minioadmin",
+      MINIO_ROOT_USER: fileEnv.MINIO_ROOT_USER ?? "minioadmin",
       PORT: fileEnv.REPORTING_PORT ?? "3003",
       REDIS_URL: fileEnv.REDIS_URL ?? "redis://localhost:16379",
+      REPORTS_BUCKET: fileEnv.REPORTS_BUCKET ?? "accounting-reports",
+      S3_ACCESS_KEY_ID: fileEnv.S3_ACCESS_KEY_ID ?? fileEnv.MINIO_ROOT_USER ?? "minioadmin",
+      S3_ENDPOINT: fileEnv.S3_ENDPOINT ?? fileEnv.MINIO_API_URL ?? "http://127.0.0.1:9000",
+      S3_REGION: fileEnv.S3_REGION ?? "us-east-1",
+      S3_SECRET_ACCESS_KEY:
+        fileEnv.S3_SECRET_ACCESS_KEY ?? fileEnv.MINIO_ROOT_PASSWORD ?? "minioadmin",
     },
     ["--filter", "@wford26/accounting-reporting-service", "dev"]
   )

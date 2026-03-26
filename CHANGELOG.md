@@ -31,6 +31,10 @@ Versioning: CalVer YYYY.MM.DD
 - T-101: Reporting service `GET /reports/pnl` route with authenticated period validation, aggregate-backed expense rollups, and empty-period handling.
 - T-102: Reporting service `GET /reports/expenses-by-category` route with aggregate-backed percentages, uncategorized support, and transaction counts.
 - T-103: Reporting service `GET /reports/vendor-spend` route with top-vendor ordering, limit handling, and aggregate-backed transaction counts.
+- T-104: Reporting service `GET /reports/dashboard` route with 60-second per-org caching, ledger-backed operational counters, account balances, and recent transaction summaries.
+- T-105: Reporting service CSV export queue with BullMQ job tracking, signed object-storage downloads, and status polling via `/reports/export/:jobId`.
+- T-110: Web reports workspace with a month picker, Recharts-backed category and trend views, inline transaction filtering, and CSV export polling/download.
+- T-111: Web expense review queue page with inline categorization, review/flag actions, flagged follow-up items, and receipt attachment from the queue.
 - Identity bootstrap: one-time first-admin setup endpoints for fresh environments via `/api/v1/auth/bootstrap-status` and `/api/v1/auth/bootstrap-admin`.
 
 ### Changed

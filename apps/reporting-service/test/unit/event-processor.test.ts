@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { createEvent } from "@wford26/event-contracts";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { createInMemoryReportingDashboardCache } from "../../src/lib/cache";
 import { createReportingEventProcessor } from "../../src/services/event-processor";
 
 import type {
@@ -25,7 +26,18 @@ function createRepository(state: TestState): ReportingMetricsRepository {
       expect(requestedOrganizationId).toBe(organizationId);
       return state.rows;
     },
+    async getDashboardLedgerSnapshot() {
+      return {
+        accountBalances: [],
+        recentTransactions: [],
+        uncategorizedCount: 0,
+        unreviewedCount: 0,
+      };
+    },
     async listMetricAggregatesForOrganizationPeriod() {
+      return [];
+    },
+    async listTransactionsForExport() {
       return [];
     },
     async replaceMetricAggregatesForOrganization(requestedOrganizationId, aggregates) {
@@ -76,7 +88,29 @@ describe("reporting event processor", () => {
       error: vi.fn(),
       info: vi.fn(),
     };
-    const processor = createReportingEventProcessor(createRepository(state), logger);
+    const dashboardCache = createInMemoryReportingDashboardCache();
+    await dashboardCache.set(
+      organizationId,
+      {
+        accountBalances: [],
+        currentMonth: {
+          expenseTrend: 0,
+          period: "2026-03",
+          topCategory: null,
+          totalExpenses: 1,
+        },
+        generatedAt: "2026-03-25T00:00:00.000Z",
+        recentTransactions: [],
+        uncategorizedCount: 1,
+        unreviewedCount: 1,
+      },
+      60
+    );
+    const processor = createReportingEventProcessor(
+      createRepository(state),
+      logger,
+      dashboardCache
+    );
 
     await processor.process(
       createEvent("transaction.created", organizationId, userId, {
@@ -101,6 +135,7 @@ describe("reporting event processor", () => {
     expect(findAggregate(state, "vendor_spend:coffee-shop:2026-03")?.metadata).toMatchObject({
       transactionCount: 1,
     });
+    await expect(dashboardCache.get(organizationId)).resolves.toBeNull();
   });
 
   it("stays idempotent when transaction.updated is replayed", async () => {

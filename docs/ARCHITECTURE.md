@@ -1186,9 +1186,10 @@ Use this checklist to track implementation progress across the architecture plan
 - [x] T-101 — Reporting Service — P&L Report
 - [x] T-102 — Reporting Service — Expense by Category
 - [x] T-103 — Reporting Service — Vendor Spend Report
-- [ ] T-104 — Reporting Service — Dashboard Aggregates API
-- [ ] T-105 — Reporting Service — CSV Export
-- [ ] T-110 — Web — Reports Dashboard Page
+- [x] T-104 — Reporting Service — Dashboard Aggregates API
+- [x] T-105 — Reporting Service — CSV Export
+- [x] T-110 — Web — Reports Dashboard Page
+- [x] T-111 — Web — Expense Review Queue UI
 
 #### Invoicing
 
