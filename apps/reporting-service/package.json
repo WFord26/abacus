@@ -1,6 +1,6 @@
 {
   "name": "@wford26/accounting-reporting-service",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "private": true,
   "scripts": {
     "build": "tsc -p tsconfig.json --noEmit false --outDir dist",

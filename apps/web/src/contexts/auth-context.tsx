@@ -60,6 +60,7 @@ type AuthContextValue = {
   refreshOrganizations: () => Promise<void>;
   register: (name: string, email: string, password: string) => Promise<void>;
   switchOrganization: (organizationId: string) => Promise<Organization>;
+  updateCurrentOrganization: (organization: Organization) => void;
   user: User | null;
 };
 
@@ -107,6 +108,31 @@ export function AuthProvider({
     setOrganization(storedSession.organization);
     setError(null);
   }
+
+  const updateCurrentOrganization = useCallback((nextOrganization: Organization) => {
+    setOrganization((current) =>
+      current?.id === nextOrganization.id ? nextOrganization : current
+    );
+    setOrganizations((current) =>
+      current.map((membership) =>
+        membership.organization.id === nextOrganization.id
+          ? {
+              ...membership,
+              organization: nextOrganization,
+            }
+          : membership
+      )
+    );
+
+    const session = getStoredAuthSession();
+
+    if (session?.organization?.id === nextOrganization.id) {
+      setStoredAuthSession({
+        ...session,
+        organization: nextOrganization,
+      });
+    }
+  }, []);
 
   const clearError = useCallback(() => {
     setError(null);
@@ -346,6 +372,7 @@ export function AuthProvider({
       refreshOrganizations,
       register,
       switchOrganization,
+      updateCurrentOrganization,
       user,
     }),
     [
@@ -365,6 +392,7 @@ export function AuthProvider({
       refreshOrganizations,
       register,
       switchOrganization,
+      updateCurrentOrganization,
       user,
     ]
   );

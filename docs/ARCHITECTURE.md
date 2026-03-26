@@ -1240,10 +1240,11 @@ splits, or duplicate detection in CSV imports.
       and the web app now includes `/verify-email` and `/magic-link` callback routes plus a
       login-page magic-link request action.
 
-- [ ] **Currently missing — Workspace membership management UI**
-      The web app supports listing organizations and switching the active organization, but it still
-      lacks first-class UI for accepting or declining invites, managing members, changing roles, and
-      editing organization profile settings.
+- [x] **Currently missing — Workspace membership management UI**
+      The web app now has a live workspace administration surface under `/settings/workspace` for
+      accepting or declining invites, managing members, changing roles, and editing the active
+      organization profile. The shell settings hub and pending-invite banner now link directly into
+      that UI.
 
 - [ ] **Currently missing — Environment bootstrap and migration automation**
       Local startup still depends on manual migration and environment setup steps. The repo does not
@@ -1261,7 +1262,6 @@ splits, or duplicate detection in CSV imports.
 - `T-015` — Azure IaC scaffold (`infrastructure/bicep`, params, deploy scripts)
 - `T-016` — Workspace bootstrap + migrate-all + seed automation
 - `T-132` — Ledger consumer for `invoice.paid` income transaction creation
-- `T-043` — Web workspace administration UI (invites, memberships, organization settings)
 - `T-007` — Architecture doc synchronization and registry reconciliation
 
 ---

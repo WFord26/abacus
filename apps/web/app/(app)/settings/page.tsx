@@ -13,7 +13,21 @@ export default function SettingsPage() {
             now share the same ledger settings surface.
           </CardDescription>
         </CardHeader>
-        <CardContent className="grid gap-4 md:grid-cols-2">
+        <CardContent className="grid gap-4 md:grid-cols-3">
+          <Card className="rounded-3xl border border-neutral-200/70 bg-white/85 shadow-sm">
+            <CardHeader>
+              <p className="text-xs uppercase tracking-[0.22em] text-neutral-600">Workspace</p>
+              <CardTitle className="text-xl">Members</CardTitle>
+              <CardDescription>
+                Accept invites, manage teammate roles, and update the active workspace profile.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button asChild>
+                <Link href="/settings/workspace">Open workspace admin</Link>
+              </Button>
+            </CardContent>
+          </Card>
           <Card className="rounded-3xl border border-neutral-200/70 bg-white/85 shadow-sm">
             <CardHeader>
               <p className="text-xs uppercase tracking-[0.22em] text-neutral-600">Ledger</p>
@@ -23,7 +37,7 @@ export default function SettingsPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Button asChild>
+              <Button asChild variant="outline">
                 <Link href="/settings/accounts">Open accounts</Link>
               </Button>
             </CardContent>
@@ -61,8 +75,8 @@ export default function SettingsPage() {
             placeholder.
           </p>
           <p>
-            Accounts and categories now both have live settings pages, and the surrounding layout is
-            ready for organization controls to follow.
+            Workspace administration now lives alongside the ledger settings pages, so invite
+            management and org profile edits share one consistent home.
           </p>
         </CardContent>
       </Card>

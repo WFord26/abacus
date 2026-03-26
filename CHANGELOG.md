@@ -42,6 +42,7 @@ Versioning: CalVer YYYY.MM.DD
 - Ledger subscriber: added `invoice.paid` Redis stream consumption with replay-safe income transaction creation on the Revenue account and downstream `transaction.created` publishing.
 - Identity bootstrap: one-time first-admin setup endpoints for fresh environments via `/api/v1/auth/bootstrap-status` and `/api/v1/auth/bootstrap-admin`.
 - Identity email flows: added Resend-backed invite, verification, and magic-link delivery with persisted one-time email tokens and web callback pages for `/verify-email` and `/magic-link`.
+- Workspace administration UI: added `/settings/workspace` with pending-invite acceptance or decline, member invites, role management, active workspace profile editing, and shell links into the new admin surface.
 
 ### Changed
 

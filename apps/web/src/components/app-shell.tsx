@@ -368,7 +368,14 @@ export function AppShell({
                 <div className="rounded-2xl border border-primary-200 bg-primary-500/10 px-4 py-3 text-sm text-neutral-800 dark:border-primary-800 dark:text-neutral-200">
                   <p className="font-medium">Pending memberships ready</p>
                   <p className="mt-1 text-xs text-neutral-700 dark:text-neutral-300">
-                    Accept or decline them from settings when those controls land.
+                    Review them now in{" "}
+                    <Link
+                      className="font-semibold text-primary-700 dark:text-primary-300"
+                      href="/settings/workspace"
+                    >
+                      workspace settings
+                    </Link>
+                    .
                   </p>
                 </div>
               ) : null}
