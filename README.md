@@ -122,3 +122,28 @@ npx --yes pnpm --filter @wford26/accounting-api-gateway start
 
 npx --yes pnpm --filter @wford26/accounting-web start
 ```
+
+## Deployment Scaffold
+
+The repo now includes a first deployment scaffold for backend services:
+
+- per-service Dockerfiles in `apps/*/Dockerfile`
+- Azure infrastructure modules in [`infrastructure/bicep`](/Users/will/git/abacus/infrastructure/bicep)
+- helper scripts in [`infrastructure/scripts`](/Users/will/git/abacus/infrastructure/scripts)
+
+Typical flow:
+
+```bash
+infrastructure/scripts/bootstrap-azure.sh dev
+infrastructure/scripts/deploy.sh dev
+IDENTITY_DATABASE_URL='postgresql://...' \
+LEDGER_DATABASE_URL='postgresql://...' \
+DOCUMENTS_DATABASE_URL='postgresql://...' \
+REPORTING_DATABASE_URL='postgresql://...' \
+INVOICING_DATABASE_URL='postgresql://...' \
+infrastructure/scripts/seed-db.sh
+```
+
+One important note: the current documents, reporting, and invoicing services still expect
+S3-compatible object storage at runtime, so the Azure parameter files intentionally keep that
+endpoint and credential wiring explicit instead of assuming native Blob compatibility.

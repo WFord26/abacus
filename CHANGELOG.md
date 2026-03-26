@@ -38,6 +38,7 @@ Versioning: CalVer YYYY.MM.DD
 - T-130: Invoicing service customer and invoice CRUD with draft, sent, paid, and void lifecycle support plus invoice-paid event publishing.
 - T-131: Invoicing service PDF generation with cached S3-compatible storage and signed invoice download URLs.
 - T-140: Web customers and invoices workspaces with a full-page invoice editor, live totals, read-only sent invoices, and customer invoice history.
+- Deployment scaffold: added per-service Dockerfiles for deployable backends, a root `.dockerignore`, Azure Bicep infrastructure modules/parameters, and helper scripts for bootstrap, deploy, and schema migration runs.
 - Identity bootstrap: one-time first-admin setup endpoints for fresh environments via `/api/v1/auth/bootstrap-status` and `/api/v1/auth/bootstrap-admin`.
 
 ### Changed

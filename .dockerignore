@@ -1,0 +1,17 @@
+.git
+.github
+.husky
+.next
+.turbo
+coverage
+dist
+node_modules
+release-tracking
+tmp
+*.log
+.DS_Store
+apps/*/dist
+apps/*/node_modules
+packages/*/node_modules
+infrastructure/docker/.env
+

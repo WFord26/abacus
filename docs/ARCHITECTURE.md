@@ -1213,10 +1213,10 @@ This list is intentionally limited to gaps that are **not already represented el
 task registry. It does **not** repeat already-modeled items such as reconciliation, transaction
 splits, or duplicate detection in CSV imports.
 
-- [ ] **Currently missing — Service containerization + Azure deployment assets**
-      The repo does not currently contain per-service `Dockerfile`s, `infrastructure/bicep/`, or
-      deployment helper scripts, even though later sections of this document assume those artifacts
-      exist for Azure delivery.
+- [x] **Currently missing — Service containerization + Azure deployment assets**
+      The repo now contains per-service `Dockerfile`s, `infrastructure/bicep/`, and deployment
+      helper scripts so the Azure MVP deployment path has a concrete scaffold instead of a doc-only
+      placeholder.
 
 - [ ] **Currently missing — Ledger consumer for invoicing settlement events**
       `invoice.paid` is published by the invoicing service, but the ledger service does not yet
