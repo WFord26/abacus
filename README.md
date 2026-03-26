@@ -1,182 +1,53 @@
 # Abacus
 
-Abacus is a lightweight accounting and expense-tracking platform for small businesses.
+Abacus is a lightweight accounting and expense-tracking platform for small businesses. The current MVP combines a Next.js web app with backend services for identity, ledger, documents, reporting, and invoicing behind a single API gateway.
 
-This repository is organized as a pnpm workspace powered by Turborepo. The initial scaffold follows the implementation plan in [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md).
+## What The App Supports Today
 
-## Current local startup
+- Email/password auth, bootstrap admin creation, email verification, magic-link sign-in, and multi-workspace membership flows
+- Dashboard reporting with financial summaries, recent activity, and reporting-service-backed aggregates
+- Transaction management with manual entry, CSV import, review queues, bulk categorization, and chart-of-accounts tooling
+- Receipt and document uploads with signed object-storage access and transaction linking
+- Customer and invoice workflows with PDF generation and invoice payment handoff into the ledger
+- Workspace administration for invites, membership roles, and workspace profile management
 
-The implemented local stack today is:
+## Architecture At A Glance
 
-- `apps/identity-service`
-- `apps/ledger-service`
-- `apps/documents-service`
-- `apps/reporting-service`
-- `apps/invoicing-service`
-- `apps/api-gateway`
-- `apps/web`
-- `infrastructure/docker/docker-compose.yml` for PostgreSQL, Redis, MinIO, and MailHog
+- `apps/web`: Next.js application for auth, dashboard, transactions, receipts, reports, customers, invoices, and settings
+- `apps/api-gateway`: Fastify gateway that fronts the internal services for the web client
+- `apps/identity-service`: authentication, sessions, organizations, memberships, invites, and email flows
+- `apps/ledger-service`: accounts, categories, transactions, reconciliation-oriented review, and CSV imports
+- `apps/documents-service`: document metadata, presigned uploads, signed downloads, and transaction attachments
+- `apps/reporting-service`: report aggregates, dashboard rollups, and export jobs
+- `apps/invoicing-service`: customers, invoices, payment lifecycle, and PDF generation
+- `infrastructure/docker`: local PostgreSQL, Redis, MinIO, and MailHog for development
+- `infrastructure/bicep`: Azure deployment scaffold for backend infrastructure
 
-### Infrastructure ports
+## Repository Layout
 
-- PostgreSQL: `localhost:15432`
-- Redis: `localhost:16379`
-- MinIO API: `localhost:9000`
-- MinIO Console: `localhost:9001`
-- MailHog SMTP: `localhost:1025`
-- MailHog UI: `localhost:8025`
+```text
+apps/              Runtime applications and services
+packages/          Shared TypeScript config, contracts, UI, and auth packages
+docs/              Product, API, architecture, and setup documentation
+infrastructure/    Docker and Azure deployment assets
+scripts/           Local development and release helper scripts
+```
 
-### Verify the workspace
+## Documentation
+
+- [Local setup](./docs/setup.md)
+- [API reference](./docs/api.md)
+- [Architecture](./docs/ARCHITECTURE.md)
+- [Changelog](./CHANGELOG.md)
+
+## Development Workflow
+
+Abacus is a pnpm workspace powered by Turborepo. For local bootstrapping, service startup, environment details, and deployment scaffold notes, use the dedicated setup guide in [docs/setup.md](./docs/setup.md).
+
+Common verification commands:
 
 ```bash
 npx --yes pnpm build
 npx --yes pnpm typecheck
 npx --yes pnpm test
 ```
-
-### Bootstrap local infrastructure
-
-```bash
-npm run env:check -- --fix
-npm run bootstrap:local
-```
-
-That automation will:
-
-- create [`.env`](/Users/will/git/abacus/.env) from [.env.example](/Users/will/git/abacus/.env.example) when missing
-- validate the local env shape before startup
-- start Docker infrastructure for PostgreSQL, Redis, MinIO, and MailHog
-- wait for the local infra ports to come online
-- apply Prisma migrations for identity, ledger, documents, reporting, and invoicing
-
-You can also run the steps individually:
-
-```bash
-npm run env:check
-npm run migrate:all
-```
-
-### Start the implemented apps
-
-The easiest path now is:
-
-```bash
-npm run dev
-```
-
-That root launcher reads [`.env`](/Users/will/git/abacus/.env) and starts:
-
-- identity service on `127.0.0.1:3001`
-- ledger service on `127.0.0.1:3002`
-- documents service on `127.0.0.1:3004`
-- reporting service on `127.0.0.1:3003`
-- invoicing service on `127.0.0.1:3006`
-- API gateway on `127.0.0.1:3000`
-- web on `127.0.0.1:3007`
-
-After the services are running, a fresh local environment with no existing auth accounts can seed
-the first owner account with:
-
-```bash
-npm run seed:local
-```
-
-By default that creates:
-
-- Email: `admin@example.com`
-- Password: `password123`
-
-Override those values in [`.env`](/Users/will/git/abacus/.env) with `SEED_ADMIN_EMAIL`,
-`SEED_ADMIN_NAME`, and `SEED_ADMIN_PASSWORD` if you want a different bootstrap user.
-
-The web app still detects bootstrap state automatically and routes fresh environments to
-`/bootstrap` when no auth account exists yet.
-
-Identity email delivery now supports Resend-backed invite emails, verification emails, and
-magic-link sign-in when these env vars are set:
-
-```bash
-RESEND_API_KEY='re_...'
-RESEND_FROM_EMAIL='Abacus <auth@your-domain.example>'
-RESEND_REPLY_TO='support@your-domain.example' # optional
-FRONTEND_ORIGIN='http://127.0.0.1:3007'
-```
-
-If you want to run them individually instead, use:
-
-```bash
-DATABASE_URL='postgresql://postgres:postgres@localhost:15432/accounting?schema=identity' \
-REDIS_URL='redis://localhost:16379' \
-JWT_SECRET='development-secret' \
-FRONTEND_ORIGIN='http://127.0.0.1:3007' \
-RESEND_API_KEY='re_...' \
-RESEND_FROM_EMAIL='Abacus <auth@your-domain.example>' \
-npx --yes pnpm --filter @wford26/accounting-identity-service start
-
-DATABASE_URL='postgresql://postgres:postgres@localhost:15432/accounting?schema=ledger' \
-JWT_SECRET='development-secret' \
-npx --yes pnpm --filter @wford26/accounting-ledger-service start
-
-DATABASE_URL='postgresql://postgres:postgres@localhost:15432/accounting?schema=documents' \
-DOCUMENTS_BUCKET='accounting-documents' \
-S3_ENDPOINT='http://127.0.0.1:9000' \
-S3_REGION='us-east-1' \
-S3_ACCESS_KEY_ID='minioadmin' \
-S3_SECRET_ACCESS_KEY='minioadmin' \
-REDIS_URL='redis://localhost:16379' \
-npx --yes pnpm --filter @wford26/accounting-documents-service start
-
-DATABASE_URL='postgresql://postgres:postgres@localhost:15432/accounting?schema=reporting' \
-REPORTS_BUCKET='accounting-reports' \
-S3_ENDPOINT='http://127.0.0.1:9000' \
-S3_REGION='us-east-1' \
-S3_ACCESS_KEY_ID='minioadmin' \
-S3_SECRET_ACCESS_KEY='minioadmin' \
-REDIS_URL='redis://localhost:16379' \
-npx --yes pnpm --filter @wford26/accounting-reporting-service start
-
-DATABASE_URL='postgresql://postgres:postgres@localhost:15432/accounting?schema=invoicing' \
-INVOICES_BUCKET='accounting-invoices' \
-S3_ENDPOINT='http://127.0.0.1:9000' \
-S3_REGION='us-east-1' \
-S3_ACCESS_KEY_ID='minioadmin' \
-S3_SECRET_ACCESS_KEY='minioadmin' \
-REDIS_URL='redis://localhost:16379' \
-npx --yes pnpm --filter @wford26/accounting-invoicing-service start
-
-DOCUMENTS_SERVICE_URL='http://127.0.0.1:3004' \
-LEDGER_SERVICE_URL='http://127.0.0.1:3002' \
-IDENTITY_SERVICE_URL='http://127.0.0.1:3001' \
-INVOICING_SERVICE_URL='http://127.0.0.1:3006' \
-REPORTING_SERVICE_URL='http://127.0.0.1:3003' \
-FRONTEND_ORIGIN='http://127.0.0.1:3007' \
-JWT_SECRET='development-secret' \
-npx --yes pnpm --filter @wford26/accounting-api-gateway start
-
-npx --yes pnpm --filter @wford26/accounting-web start
-```
-
-## Deployment Scaffold
-
-The repo now includes a first deployment scaffold for backend services:
-
-- per-service Dockerfiles in `apps/*/Dockerfile`
-- Azure infrastructure modules in [`infrastructure/bicep`](/Users/will/git/abacus/infrastructure/bicep)
-- helper scripts in [`infrastructure/scripts`](/Users/will/git/abacus/infrastructure/scripts)
-
-Typical flow:
-
-```bash
-infrastructure/scripts/bootstrap-azure.sh dev
-infrastructure/scripts/deploy.sh dev
-IDENTITY_DATABASE_URL='postgresql://...' \
-LEDGER_DATABASE_URL='postgresql://...' \
-DOCUMENTS_DATABASE_URL='postgresql://...' \
-REPORTING_DATABASE_URL='postgresql://...' \
-INVOICING_DATABASE_URL='postgresql://...' \
-infrastructure/scripts/seed-db.sh
-```
-
-One important note: the current documents, reporting, and invoicing services still expect
-S3-compatible object storage at runtime, so the Azure parameter files intentionally keep that
-endpoint and credential wiring explicit instead of assuming native Blob compatibility.
