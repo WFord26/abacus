@@ -27,6 +27,8 @@ Versioning: CalVer YYYY.MM.DD
 - T-082: Web receipts workspace with thumbnail previews, unlinked filtering, XHR upload progress, mobile capture support, and transaction-row receipt attachment.
 - T-090: Web dashboard summary cards with five-minute refreshes, ledger-backed month metrics, account balance snapshots, and recent transaction activity.
 - T-091: Web CSV import wizard with upload, preview, column mapping memory, date-format detection, staged import progress, and result drilldowns.
+- T-100: Reporting service event subscriber with Redis consumer-group startup, idempotent expense aggregate rebuilds, and unit coverage for handler and failure paths.
+- T-101: Reporting service `GET /reports/pnl` route with authenticated period validation, aggregate-backed expense rollups, and empty-period handling.
 - Identity bootstrap: one-time first-admin setup endpoints for fresh environments via `/api/v1/auth/bootstrap-status` and `/api/v1/auth/bootstrap-admin`.
 
 ### Changed

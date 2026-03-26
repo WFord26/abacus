@@ -1182,8 +1182,8 @@ Use this checklist to track implementation progress across the architecture plan
 
 #### Reporting
 
-- [ ] T-100 — Reporting Service — Event Subscriber Setup
-- [ ] T-101 — Reporting Service — P&L Report
+- [x] T-100 — Reporting Service — Event Subscriber Setup
+- [x] T-101 — Reporting Service — P&L Report
 - [ ] T-102 — Reporting Service — Expense by Category
 - [ ] T-103 — Reporting Service — Vendor Spend Report
 - [ ] T-104 — Reporting Service — Dashboard Aggregates API

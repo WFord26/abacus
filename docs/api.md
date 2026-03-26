@@ -1878,43 +1878,48 @@ Return all documents linked to a transaction, each with a fresh signed download 
 
 **Public base**: `/api/v1`
 
-#### GET /api/v1/reports/summary
+#### GET /api/v1/reports/pnl
 
-Get a financial summary report for the organization.
+Return the current profit and loss snapshot for a single accounting period.
 
 **Authentication**: Required
 
 **Query Parameters**:
 
-- `dateFrom` (required): Start date (YYYY-MM-DD)
-- `dateTo` (required): End date (YYYY-MM-DD)
+- `period` (required): Accounting period in `YYYY-MM` format
 
 **Response: 200 OK**:
 
 ```typescript
 {
   data: {
-    period: {
-      from: string (ISO 8601)
-      to: string (ISO 8601)
-    }
-    accounts: {
-      id: string (UUID)
-      name: string
-      balance: number
-      currency: string
-    }[]
+    period: string
+    income: Array<{
+      categoryId?: string | null
+      categoryName: string
+      amount: number
+    }>
+    expenses: Array<{
+      categoryId?: string | null
+      categoryName: string
+      amount: number
+    }>
     totalIncome: number
     totalExpenses: number
-    netCashFlow: number
-    transactionCount: number
+    netIncome: number
+    generatedAt: string (ISO 8601)
   }
 }
 ```
 
+**Notes**:
+
+- This route reads from `reporting.metric_aggregates`, not the live ledger schema
+- If the requested period has no aggregates yet, it still returns `200 OK` with empty arrays and zero totals
+
 **Error Responses**:
 
-- `400 Bad Request`: Invalid or missing date parameters
+- `400 Bad Request`: Missing or invalid `period` format
 - `401 Unauthorized`: Missing or invalid token
 
 ---

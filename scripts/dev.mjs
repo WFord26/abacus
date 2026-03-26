@@ -158,13 +158,27 @@ children.push(
 
 children.push(
   startService(
+    "reporting",
+    {
+      DATABASE_URL:
+        fileEnv.REPORTING_DATABASE_URL ??
+        "postgresql://postgres:postgres@localhost:15432/accounting?schema=reporting",
+      PORT: fileEnv.REPORTING_PORT ?? "3003",
+      REDIS_URL: fileEnv.REDIS_URL ?? "redis://localhost:16379",
+    },
+    ["--filter", "@wford26/accounting-reporting-service", "dev"]
+  )
+);
+
+children.push(
+  startService(
     "gateway",
     {
       FRONTEND_ORIGIN: fileEnv.FRONTEND_ORIGIN ?? "http://127.0.0.1:3007",
       IDENTITY_SERVICE_URL: fileEnv.IDENTITY_SERVICE_URL ?? "http://127.0.0.1:3001",
       LEDGER_SERVICE_URL: fileEnv.LEDGER_SERVICE_URL ?? "http://127.0.0.1:3002",
       DOCUMENTS_SERVICE_URL: fileEnv.DOCUMENTS_SERVICE_URL ?? "http://127.0.0.1:3004",
-      REPORTING_SERVICE_URL: fileEnv.REPORTING_SERVICE_URL ?? "",
+      REPORTING_SERVICE_URL: fileEnv.REPORTING_SERVICE_URL ?? "http://127.0.0.1:3003",
       INVOICING_SERVICE_URL: fileEnv.INVOICING_SERVICE_URL ?? "",
       JWT_SECRET: fileEnv.JWT_SECRET ?? "development-secret",
       PORT: fileEnv.API_GATEWAY_PORT ?? "3000",
