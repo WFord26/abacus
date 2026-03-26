@@ -27,6 +27,7 @@
    - [Infrastructure as Code](#infrastructure-as-code)
 10. [Task Registry — Agent Build Instructions](#10-task-registry--agent-build-instructions)
     - [Task Checklist](#task-checklist)
+    - [Currently Missing (Verified Against Codebase)](#currently-missing-verified-against-codebase)
     - [Tier 0 — Foundation (No Dependencies)](#tier-0--foundation-no-dependencies)
     - [Tier 1 — Core Infrastructure](#tier-1--core-infrastructure)
     - [Tier 2 — Identity & Gateway](#tier-2--identity--gateway)
@@ -1193,11 +1194,64 @@ Use this checklist to track implementation progress across the architecture plan
 
 #### Invoicing
 
-- [ ] T-130 — Invoicing Service — Customers + Invoices
-- [ ] T-131 — Invoicing Service — PDF Generation
-- [ ] T-140 — Web — Invoicing Pages
+- [x] T-130 — Invoicing Service — Customers + Invoices
+- [x] T-131 — Invoicing Service — PDF Generation
+- [x] T-140 — Web — Invoicing Pages
 
 > Note: `T-031` appears in the dependency graph but does not yet have detailed task specs in this registry. Keep it on the checklist so it is not lost during planning.
+
+---
+
+### Currently Missing (Verified Against Codebase)
+
+The following items were re-verified against the repository on **2026-03-25** and are
+currently missing from the implementation, even though they are either implied by the
+architecture, required for production readiness, or needed to keep this document aligned with
+the codebase.
+
+This list is intentionally limited to gaps that are **not already represented elsewhere** in the
+task registry. It does **not** repeat already-modeled items such as reconciliation, transaction
+splits, or duplicate detection in CSV imports.
+
+- [ ] **Currently missing — Service containerization + Azure deployment assets**
+      The repo does not currently contain per-service `Dockerfile`s, `infrastructure/bicep/`, or
+      deployment helper scripts, even though later sections of this document assume those artifacts
+      exist for Azure delivery.
+
+- [ ] **Currently missing — Ledger consumer for invoicing settlement events**
+      `invoice.paid` is published by the invoicing service, but the ledger service does not yet
+      subscribe to that event or create the corresponding income transaction described in the event
+      catalog.
+
+- [ ] **Currently missing — Identity email flows**
+      The architecture assigns email-based auth responsibilities to identity service, including magic
+      link support. The repo has local MailHog infrastructure, but there is no implemented mailer,
+      invite email flow, email verification flow, or magic-link flow yet.
+
+- [ ] **Currently missing — Workspace membership management UI**
+      The web app supports listing organizations and switching the active organization, but it still
+      lacks first-class UI for accepting or declining invites, managing members, changing roles, and
+      editing organization profile settings.
+
+- [ ] **Currently missing — Environment bootstrap and migration automation**
+      Local startup still depends on manual migration and environment setup steps. The repo does not
+      yet provide the bootstrap, migrate-all, seed, or environment validation tooling expected for a
+      repeatable Stage 1 or Stage 2 setup.
+
+- [ ] **Currently missing — Architecture-to-code sync pass**
+      The dependency graph and checklist have drifted apart in a few places, and the checklist no
+      longer reflects every implemented or planned slice. This document needs an explicit maintenance
+      pass whenever major implementation milestones land so it remains the planning source of truth.
+
+**Suggested follow-up tracking tasks:**
+
+- `T-014` — Service containerization + Dockerfiles for all deployable apps
+- `T-015` — Azure IaC scaffold (`infrastructure/bicep`, params, deploy scripts)
+- `T-016` — Workspace bootstrap + migrate-all + seed automation
+- `T-132` — Ledger consumer for `invoice.paid` income transaction creation
+- `T-023` — Identity email delivery layer (magic links, invite emails, verification emails)
+- `T-043` — Web workspace administration UI (invites, memberships, organization settings)
+- `T-007` — Architecture doc synchronization and registry reconciliation
 
 ---
 

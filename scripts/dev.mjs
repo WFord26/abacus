@@ -181,6 +181,29 @@ children.push(
 
 children.push(
   startService(
+    "invoicing",
+    {
+      DATABASE_URL:
+        fileEnv.INVOICING_DATABASE_URL ??
+        "postgresql://postgres:postgres@localhost:15432/accounting?schema=invoicing",
+      INVOICES_BUCKET: fileEnv.INVOICES_BUCKET ?? "accounting-invoices",
+      MINIO_API_URL: fileEnv.MINIO_API_URL ?? "http://127.0.0.1:9000",
+      MINIO_ROOT_PASSWORD: fileEnv.MINIO_ROOT_PASSWORD ?? "minioadmin",
+      MINIO_ROOT_USER: fileEnv.MINIO_ROOT_USER ?? "minioadmin",
+      PORT: fileEnv.INVOICING_PORT ?? "3006",
+      REDIS_URL: fileEnv.REDIS_URL ?? "redis://localhost:16379",
+      S3_ACCESS_KEY_ID: fileEnv.S3_ACCESS_KEY_ID ?? fileEnv.MINIO_ROOT_USER ?? "minioadmin",
+      S3_ENDPOINT: fileEnv.S3_ENDPOINT ?? fileEnv.MINIO_API_URL ?? "http://127.0.0.1:9000",
+      S3_REGION: fileEnv.S3_REGION ?? "us-east-1",
+      S3_SECRET_ACCESS_KEY:
+        fileEnv.S3_SECRET_ACCESS_KEY ?? fileEnv.MINIO_ROOT_PASSWORD ?? "minioadmin",
+    },
+    ["--filter", "@wford26/accounting-invoicing-service", "dev"]
+  )
+);
+
+children.push(
+  startService(
     "gateway",
     {
       FRONTEND_ORIGIN: fileEnv.FRONTEND_ORIGIN ?? "http://127.0.0.1:3007",
@@ -188,7 +211,7 @@ children.push(
       LEDGER_SERVICE_URL: fileEnv.LEDGER_SERVICE_URL ?? "http://127.0.0.1:3002",
       DOCUMENTS_SERVICE_URL: fileEnv.DOCUMENTS_SERVICE_URL ?? "http://127.0.0.1:3004",
       REPORTING_SERVICE_URL: fileEnv.REPORTING_SERVICE_URL ?? "http://127.0.0.1:3003",
-      INVOICING_SERVICE_URL: fileEnv.INVOICING_SERVICE_URL ?? "",
+      INVOICING_SERVICE_URL: fileEnv.INVOICING_SERVICE_URL ?? "http://127.0.0.1:3006",
       JWT_SECRET: fileEnv.JWT_SECRET ?? "development-secret",
       PORT: fileEnv.API_GATEWAY_PORT ?? "3000",
     },

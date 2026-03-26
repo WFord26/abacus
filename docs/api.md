@@ -1874,6 +1874,405 @@ Return all documents linked to a transaction, each with a fresh signed download 
 
 ---
 
+### Invoicing Service
+
+**Public base**: `/api/v1`
+
+#### GET /api/v1/customers
+
+Return all customers for the active organization with invoice counts and outstanding sent balance.
+
+**Authentication**: Required
+
+**Response: 200 OK**:
+
+```typescript
+{
+  data: Array<{
+    id: string (UUID)
+    organizationId: string (UUID)
+    name: string
+    email?: string | null
+    phone?: string | null
+    address?: Record<string, string | null> | null
+    invoiceCount: number
+    outstandingBalance: number
+    createdAt: string (ISO 8601)
+    updatedAt: string (ISO 8601)
+  }>
+}
+```
+
+**Error Responses**:
+
+- `401 Unauthorized`: Missing or invalid token
+
+---
+
+#### POST /api/v1/customers
+
+Create a customer for the active organization.
+
+**Authentication**: Required
+**Authorization**: `owner`, `admin`, `accountant`
+
+**Request**:
+
+```typescript
+{
+  name: string
+  email?: string | null
+  phone?: string | null
+  address?: {
+    line1?: string | null
+    city?: string | null
+    region?: string | null
+    postalCode?: string | null
+    country?: string | null
+  } | null
+}
+```
+
+**Response: 201 Created**:
+
+```typescript
+{
+  data: {
+    id: string (UUID)
+    organizationId: string (UUID)
+    name: string
+    email?: string | null
+    phone?: string | null
+    address?: Record<string, string | null> | null
+    createdAt: string (ISO 8601)
+    updatedAt: string (ISO 8601)
+  }
+}
+```
+
+**Error Responses**:
+
+- `400 Bad Request`: Validation failed
+- `401 Unauthorized`: Missing or invalid token
+- `403 Forbidden`: Caller does not have billing mutation permissions
+
+---
+
+#### PATCH /api/v1/customers/:customerId
+
+Update one or more customer fields.
+
+**Authentication**: Required
+**Authorization**: `owner`, `admin`, `accountant`
+
+**Error Responses**:
+
+- `400 Bad Request`: Validation failed
+- `401 Unauthorized`: Missing or invalid token
+- `403 Forbidden`: Caller does not have billing mutation permissions
+- `404 Not Found`: Customer does not exist in the active organization
+
+---
+
+#### DELETE /api/v1/customers/:customerId
+
+Delete a customer that has no invoice history.
+
+**Authentication**: Required
+**Authorization**: `owner`, `admin`, `accountant`
+
+**Response: 200 OK**:
+
+```typescript
+{
+  data: {
+    deleted: true;
+  }
+}
+```
+
+**Error Responses**:
+
+- `401 Unauthorized`: Missing or invalid token
+- `403 Forbidden`: Caller does not have billing mutation permissions
+- `404 Not Found`: Customer does not exist in the active organization
+- `409 Conflict`: Customer already has invoices and cannot be deleted
+
+---
+
+#### GET /api/v1/invoices
+
+Return invoices for the active organization.
+
+**Authentication**: Required
+
+**Query Parameters**:
+
+- `customerId` (optional): Restrict invoices to one customer
+- `status` (optional): `draft`, `sent`, `paid`, or `void`
+
+**Response: 200 OK**:
+
+```typescript
+{
+  data: Array<{
+    id: string (UUID)
+    organizationId: string (UUID)
+    customerId: string (UUID)
+    invoiceNumber: string
+    status: 'draft' | 'sent' | 'paid' | 'void'
+    issueDate?: string | null
+    dueDate?: string | null
+    subtotal: number
+    taxRate: number
+    tax: number
+    total: number
+    notes?: string | null
+    lineItems?: Array<{
+      id: string (UUID)
+      invoiceId: string (UUID)
+      description: string
+      quantity: number
+      unitPrice: number
+      amount: number
+    }>
+    createdAt: string (ISO 8601)
+    updatedAt: string (ISO 8601)
+  }>
+}
+```
+
+**Error Responses**:
+
+- `400 Bad Request`: Invalid `customerId` or `status`
+- `401 Unauthorized`: Missing or invalid token
+
+---
+
+#### POST /api/v1/invoices
+
+Create a draft invoice.
+
+**Authentication**: Required
+**Authorization**: `owner`, `admin`, `accountant`
+
+**Request**:
+
+```typescript
+{
+  customerId: string (UUID)
+  issueDate?: string | null // YYYY-MM-DD
+  dueDate?: string | null // YYYY-MM-DD
+  taxRate?: number // 0-100
+  notes?: string | null
+  lineItems: Array<{
+    description: string
+    quantity: number
+    unitPrice: number
+  }>
+}
+```
+
+**Response: 201 Created**:
+
+```typescript
+{
+  data: {
+    id: string (UUID)
+    organizationId: string (UUID)
+    customerId: string (UUID)
+    invoiceNumber: string
+    status: 'draft'
+    issueDate?: string | null
+    dueDate?: string | null
+    subtotal: number
+    taxRate: number
+    tax: number
+    total: number
+    notes?: string | null
+    customer: {
+      id: string (UUID)
+      name: string
+      email?: string | null
+      phone?: string | null
+      address?: Record<string, string | null> | null
+      organizationId: string (UUID)
+      createdAt: string (ISO 8601)
+      updatedAt: string (ISO 8601)
+    } | null
+    lineItems: Array<{
+      id: string (UUID)
+      invoiceId: string (UUID)
+      description: string
+      quantity: number
+      unitPrice: number
+      amount: number
+    }>
+    createdAt: string (ISO 8601)
+    updatedAt: string (ISO 8601)
+  }
+}
+```
+
+**Notes**:
+
+- The service auto-assigns invoice numbers in `INV-0001` sequence order per organization
+- Successful create publishes `invoice.created`
+
+**Error Responses**:
+
+- `400 Bad Request`: Validation failed
+- `401 Unauthorized`: Missing or invalid token
+- `403 Forbidden`: Caller does not have billing mutation permissions
+- `404 Not Found`: Customer does not exist in the active organization
+
+---
+
+#### GET /api/v1/invoices/:invoiceId
+
+Return a single invoice with embedded customer and line items.
+
+**Authentication**: Required
+
+**Error Responses**:
+
+- `401 Unauthorized`: Missing or invalid token
+- `404 Not Found`: Invoice does not exist in the active organization
+
+---
+
+#### PATCH /api/v1/invoices/:invoiceId
+
+Update a draft invoice, or set `status: "void"` to void a non-void invoice.
+
+**Authentication**: Required
+**Authorization**: `owner`, `admin`, `accountant`
+
+**Request**:
+
+```typescript
+{
+  customerId?: string (UUID)
+  issueDate?: string | null // YYYY-MM-DD
+  dueDate?: string | null // YYYY-MM-DD
+  taxRate?: number
+  notes?: string | null
+  status?: 'draft' | 'sent' | 'paid' | 'void'
+  lineItems?: Array<{
+    description: string
+    quantity: number
+    unitPrice: number
+  }>
+}
+```
+
+**Notes**:
+
+- Draft invoices are fully editable
+- Sent invoices are read-only except for lifecycle actions like mark-paid or void
+- Voided invoices cannot be edited again
+
+**Error Responses**:
+
+- `400 Bad Request`: Validation failed
+- `401 Unauthorized`: Missing or invalid token
+- `403 Forbidden`: Caller does not have billing mutation permissions
+- `404 Not Found`: Invoice does not exist in the active organization
+- `409 Conflict`: Invoice lifecycle rules rejected the update
+
+---
+
+#### DELETE /api/v1/invoices/:invoiceId
+
+Delete a draft invoice.
+
+**Authentication**: Required
+**Authorization**: `owner`, `admin`, `accountant`
+
+**Response: 200 OK**:
+
+```typescript
+{
+  data: {
+    deleted: true;
+  }
+}
+```
+
+**Error Responses**:
+
+- `401 Unauthorized`: Missing or invalid token
+- `403 Forbidden`: Caller does not have billing mutation permissions
+- `404 Not Found`: Invoice does not exist in the active organization
+- `409 Conflict`: Only draft invoices can be deleted
+
+---
+
+#### POST /api/v1/invoices/:invoiceId/send
+
+Move a draft invoice to `sent`.
+
+**Authentication**: Required
+**Authorization**: `owner`, `admin`, `accountant`
+
+**Error Responses**:
+
+- `401 Unauthorized`: Missing or invalid token
+- `403 Forbidden`: Caller does not have billing mutation permissions
+- `404 Not Found`: Invoice does not exist in the active organization
+- `409 Conflict`: Only draft invoices can be sent
+
+---
+
+#### POST /api/v1/invoices/:invoiceId/mark-paid
+
+Move a sent invoice to `paid`.
+
+**Authentication**: Required
+**Authorization**: `owner`, `admin`, `accountant`
+
+**Notes**:
+
+- Successful payment updates publish `invoice.paid`
+
+**Error Responses**:
+
+- `401 Unauthorized`: Missing or invalid token
+- `403 Forbidden`: Caller does not have billing mutation permissions
+- `404 Not Found`: Invoice does not exist in the active organization
+- `409 Conflict`: Only sent invoices can be marked paid
+
+---
+
+#### GET /api/v1/invoices/:invoiceId/pdf
+
+Return a signed download URL for the cached invoice PDF.
+
+**Authentication**: Required
+
+**Response: 200 OK**:
+
+```typescript
+{
+  data: {
+    downloadUrl: string
+    downloadUrlExpiresAt: string (ISO 8601)
+  }
+}
+```
+
+**Notes**:
+
+- PDFs are generated on demand and cached in S3-compatible object storage
+- The service reuses the cached object until the invoice changes again
+
+**Error Responses**:
+
+- `401 Unauthorized`: Missing or invalid token
+- `404 Not Found`: Invoice does not exist in the active organization
+
+---
+
 ### Reporting Service
 
 **Public base**: `/api/v1`

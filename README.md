@@ -12,6 +12,7 @@ The implemented local stack today is:
 - `apps/ledger-service`
 - `apps/documents-service`
 - `apps/reporting-service`
+- `apps/invoicing-service`
 - `apps/api-gateway`
 - `apps/web`
 - `infrastructure/docker/docker-compose.yml` for PostgreSQL, Redis, MinIO, and MailHog
@@ -56,6 +57,7 @@ That root launcher reads [`.env`](/Users/will/git/abacus/.env) and starts:
 - ledger service on `127.0.0.1:3002`
 - documents service on `127.0.0.1:3004`
 - reporting service on `127.0.0.1:3003`
+- invoicing service on `127.0.0.1:3006`
 - API gateway on `127.0.0.1:3000`
 - web on `127.0.0.1:3007`
 
@@ -100,9 +102,19 @@ S3_SECRET_ACCESS_KEY='minioadmin' \
 REDIS_URL='redis://localhost:16379' \
 npx --yes pnpm --filter @wford26/accounting-reporting-service start
 
+DATABASE_URL='postgresql://postgres:postgres@localhost:15432/accounting?schema=invoicing' \
+INVOICES_BUCKET='accounting-invoices' \
+S3_ENDPOINT='http://127.0.0.1:9000' \
+S3_REGION='us-east-1' \
+S3_ACCESS_KEY_ID='minioadmin' \
+S3_SECRET_ACCESS_KEY='minioadmin' \
+REDIS_URL='redis://localhost:16379' \
+npx --yes pnpm --filter @wford26/accounting-invoicing-service start
+
 DOCUMENTS_SERVICE_URL='http://127.0.0.1:3004' \
 LEDGER_SERVICE_URL='http://127.0.0.1:3002' \
 IDENTITY_SERVICE_URL='http://127.0.0.1:3001' \
+INVOICING_SERVICE_URL='http://127.0.0.1:3006' \
 REPORTING_SERVICE_URL='http://127.0.0.1:3003' \
 FRONTEND_ORIGIN='http://127.0.0.1:3007' \
 JWT_SECRET='development-secret' \

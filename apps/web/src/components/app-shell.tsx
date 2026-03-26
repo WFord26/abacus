@@ -29,6 +29,7 @@ const navigationItems = [
   { href: "/transactions", label: "Transactions" },
   { href: "/expenses", label: "Expenses" },
   { href: "/receipts", label: "Receipts" },
+  { href: "/customers", label: "Customers" },
   { href: "/invoices", label: "Invoices" },
   { href: "/reports", label: "Reports" },
   { href: "/settings", label: "Settings" },

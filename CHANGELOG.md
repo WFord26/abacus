@@ -35,6 +35,9 @@ Versioning: CalVer YYYY.MM.DD
 - T-105: Reporting service CSV export queue with BullMQ job tracking, signed object-storage downloads, and status polling via `/reports/export/:jobId`.
 - T-110: Web reports workspace with a month picker, Recharts-backed category and trend views, inline transaction filtering, and CSV export polling/download.
 - T-111: Web expense review queue page with inline categorization, review/flag actions, flagged follow-up items, and receipt attachment from the queue.
+- T-130: Invoicing service customer and invoice CRUD with draft, sent, paid, and void lifecycle support plus invoice-paid event publishing.
+- T-131: Invoicing service PDF generation with cached S3-compatible storage and signed invoice download URLs.
+- T-140: Web customers and invoices workspaces with a full-page invoice editor, live totals, read-only sent invoices, and customer invoice history.
 - Identity bootstrap: one-time first-admin setup endpoints for fresh environments via `/api/v1/auth/bootstrap-status` and `/api/v1/auth/bootstrap-admin`.
 
 ### Changed
