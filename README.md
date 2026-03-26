@@ -38,7 +38,18 @@ scripts/           Local development and release helper scripts
 - [Local setup](./docs/setup.md)
 - [API reference](./docs/api.md)
 - [Architecture](./docs/ARCHITECTURE.md)
+- [Licensing](./docs/licensing.md)
+- [Contributing](./CONTRIBUTING.md)
+- [Trademark note](./TRADEMARKS.md)
 - [Changelog](./CHANGELOG.md)
+
+## License
+
+Abacus is licensed under the GNU Affero General Public License, version 3 or any later version (`AGPL-3.0-or-later`). The current repository is the self-hostable core product, including the application code, shared packages, documentation, and deployment assets.
+
+If you modify Abacus and make that modified version available to users over a network, the AGPL requires you to make the corresponding source available to those users as well. See [LICENSE](./LICENSE), [docs/licensing.md](./docs/licensing.md), and [CONTRIBUTING.md](./CONTRIBUTING.md) for the project policy.
+
+The `Abacus` name, logos, and related brand assets are not licensed under the AGPL. See [TRADEMARKS.md](./TRADEMARKS.md).
 
 ## Development Workflow
 
