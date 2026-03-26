@@ -99,6 +99,14 @@ Bootstrap local infrastructure without migrations:
 npm run bootstrap:local -- --skip-migrate
 ```
 
+Run the web app in Docker while keeping the API gateway on the host:
+
+```bash
+docker compose -f infrastructure/docker/docker-compose.yml --profile web up --build web
+```
+
+The Compose `web` service builds `apps/web/Dockerfile` with `NEXT_PUBLIC_API_BASE_URL` pointed at `http://host.docker.internal:3000/api/v1` by default so the containerized Next.js app can talk to a locally running API gateway. Override that variable when you need the web container to target a different gateway URL.
+
 ## Seeded Admin Account
 
 On a fresh environment, `npm run seed:local` creates the first owner account through the identity bootstrap endpoints.

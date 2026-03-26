@@ -58,6 +58,22 @@ services:
       retries: 6
       start_period: 5s
 
+  web:
+    profiles: ["web"]
+    build:
+      context: ../..
+      dockerfile: apps/web/Dockerfile
+      args:
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://host.docker.internal:3000/api/v1}
+    image: abacus-web:local
+    container_name: abacus-web
+    ports:
+      - "3007:3007"
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://host.docker.internal:3000/api/v1}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
 volumes:
   postgres-data:
     name: abacus-postgres-data
