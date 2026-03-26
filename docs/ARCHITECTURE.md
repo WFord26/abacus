@@ -1136,29 +1136,29 @@ Use this checklist to track implementation progress across the architecture plan
 
 #### Foundation
 
-- [ ] T-001 — Monorepo Scaffold
-- [ ] T-002 — Shared TypeScript Configs
-- [ ] T-003 — ESLint + Prettier Configs
-- [ ] T-004 — Docker Compose Dev Stack
-- [ ] T-005 — GitHub Actions CI Pipeline
-- [ ] T-006 — Design Tokens + UI Package
+- [x] T-001 — Monorepo Scaffold
+- [x] T-002 — Shared TypeScript Configs
+- [x] T-003 — ESLint + Prettier Configs
+- [x] T-004 — Docker Compose Dev Stack
+- [x] T-005 — GitHub Actions CI Pipeline
+- [x] T-006 — Design Tokens + UI Package
 
 #### Core Infrastructure
 
-- [ ] T-010 — Shared Types Package
-- [ ] T-011 — Event Contracts Package
-- [ ] T-012 — Auth SDK Package
-- [ ] T-013 — Database Schema + Prisma Setup
+- [x] T-010 — Shared Types Package
+- [x] T-011 — Event Contracts Package
+- [x] T-012 — Auth SDK Package
+- [x] T-013 — Database Schema + Prisma Setup
 
 #### Identity & Gateway
 
-- [ ] T-020 — Identity Service — Core (Users, Orgs, Memberships)
-- [ ] T-021 — Identity Service — Auth (JWT, Login, Register, Refresh)
-- [ ] T-022 — Identity Service — Org Membership + Roles
-- [ ] T-030 — API Gateway — Scaffold + Auth Middleware
-- [ ] T-031 — API Gateway — Identity Service Routing
-- [ ] T-040 — Web App Scaffold
-- [ ] T-041 — Web — Auth Pages (Sign In, Sign Up, Org Setup)
+- [x] T-020 — Identity Service — Core (Users, Orgs, Memberships)
+- [x] T-021 — Identity Service — Auth (JWT, Login, Register, Refresh)
+- [x] T-022 — Identity Service — Org Membership + Roles
+- [x] T-030 — API Gateway — Scaffold + Auth Middleware
+- [x] T-031 — API Gateway — Identity Service Routing
+- [x] T-040 — Web App Scaffold
+- [x] T-041 — Web — Auth Pages (Sign In, Sign Up, Org Setup)
 - [x] T-042 — Web — Shell Layout (Nav, Sidebar, Org Context)
 
 #### Ledger & Transactions
@@ -1169,8 +1169,8 @@ Use this checklist to track implementation progress across the architecture plan
 - [x] T-053 — Ledger Service — CSV Import Pipeline
 - [x] T-054 — Ledger Service — Transaction Review States
 - [x] T-060 — Web — Accounts Management Page
-- [ ] T-061 — Web — Categories Management Page
-- [ ] T-062 — Web — Transactions Table
+- [x] T-061 — Web — Categories Management Page
+- [x] T-062 — Web — Transactions Table
 
 #### Expenses & Documents
 

@@ -9,8 +9,8 @@ export default function SettingsPage() {
           <p className="text-xs uppercase tracking-[0.26em] text-primary-600">Workspace</p>
           <CardTitle className="text-3xl text-neutral-900 dark:text-neutral-50">Settings</CardTitle>
           <CardDescription className="max-w-2xl text-base text-neutral-700 dark:text-neutral-300">
-            Tune the core bookkeeping structure for the active organization. Accounts are now live,
-            and category management can plug into the same frame next.
+            Tune the core bookkeeping structure for the active organization. Accounts and categories
+            now share the same ledger settings surface.
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-2">
@@ -28,18 +28,18 @@ export default function SettingsPage() {
               </Button>
             </CardContent>
           </Card>
-
-          <Card className="rounded-3xl border border-dashed border-neutral-300 bg-white/70 shadow-sm">
+          <Card className="rounded-3xl border border-neutral-200/70 bg-white/85 shadow-sm">
             <CardHeader>
               <p className="text-xs uppercase tracking-[0.22em] text-neutral-600">Ledger</p>
               <CardTitle className="text-xl">Categories</CardTitle>
               <CardDescription>
-                Nested category management is the next settings slice to land here.
+                Build out the category tree with nested parents, a constrained color palette, and
+                delete safeguards.
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Button disabled variant="outline">
-                Categories next
+              <Button asChild variant="outline">
+                <Link href="/settings/categories">Open categories</Link>
               </Button>
             </CardContent>
           </Card>
@@ -61,8 +61,8 @@ export default function SettingsPage() {
             placeholder.
           </p>
           <p>
-            Accounts are the first writable settings view, and the surrounding layout is ready for
-            categories and organization controls to follow.
+            Accounts and categories now both have live settings pages, and the surrounding layout is
+            ready for organization controls to follow.
           </p>
         </CardContent>
       </Card>

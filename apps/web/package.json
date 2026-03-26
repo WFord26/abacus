@@ -11,6 +11,8 @@
   },
   "dependencies": {
     "@tanstack/react-query": "^5.79.0",
+    "@tanstack/react-table": "^8.21.3",
+    "@tanstack/react-virtual": "^3.13.23",
     "@wford26/design-tokens": "workspace:*",
     "@wford26/shared-types": "workspace:*",
     "@wford26/ui": "workspace:*",
@@ -21,10 +23,10 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
-    "@wford26/config-typescript": "workspace:*",
     "@types/node": "^24.5.2",
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.2",
+    "@wford26/config-typescript": "workspace:*",
     "autoprefixer": "^10.4.21",
     "postcss": "^8.5.6",
     "tailwindcss": "^3.4.17",

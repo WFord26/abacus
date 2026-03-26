@@ -1,6 +1,6 @@
 {
   "name": "abacus",
-  "version": "2026.03.25.2",
+  "version": "2026.03.25.3",
   "private": true,
   "packageManager": "pnpm@10.6.5",
   "workspaces": [

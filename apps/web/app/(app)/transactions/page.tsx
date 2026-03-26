@@ -1,11 +1,5 @@
-import { PlaceholderPage } from "../../../src/components/placeholder-page";
+import { TransactionsPage } from "../../../src/components/transactions/transactions-page";
 
-export default function TransactionsPage() {
-  return (
-    <PlaceholderPage
-      description="Transactions will plug into the ledger routes next. The navigation, guard, and workspace shell are already in place."
-      eyebrow="Ledger"
-      title="Transactions"
-    />
-  );
+export default function LedgerTransactionsPage() {
+  return <TransactionsPage />;
 }
