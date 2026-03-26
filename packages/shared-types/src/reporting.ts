@@ -31,6 +31,7 @@ export type ExpenseByCategoryReport = {
     categoryName: string;
     amount: number;
     percentage: number;
+    transactionCount: number;
   }>;
   total: number;
   generatedAt: string;

@@ -40,11 +40,22 @@ function buildExpenseAggregates(
   const totals = new Map<string, number>();
   const categories = new Map<
     string,
-    { amount: number; categoryId: string | null; categoryName: string }
+    {
+      amount: number;
+      categoryId: string | null;
+      categoryName: string;
+      transactionCount: number;
+    }
   >();
   const vendors = new Map<
     string,
-    { amount: number; merchantKey: string; merchantName: string; period: string }
+    {
+      amount: number;
+      merchantKey: string;
+      merchantName: string;
+      period: string;
+      transactionCount: number;
+    }
   >();
 
   for (const row of rows) {
@@ -67,6 +78,7 @@ function buildExpenseAggregates(
       amount: (categories.get(categoryKey)?.amount ?? 0) + absoluteAmount,
       categoryId: row.categoryId,
       categoryName,
+      transactionCount: (categories.get(categoryKey)?.transactionCount ?? 0) + 1,
     });
 
     vendors.set(vendorKey, {
@@ -74,6 +86,7 @@ function buildExpenseAggregates(
       merchantKey,
       merchantName: normalizeMerchantLabel(row.merchantRaw),
       period,
+      transactionCount: (vendors.get(vendorKey)?.transactionCount ?? 0) + 1,
     });
   }
 
@@ -97,6 +110,7 @@ function buildExpenseAggregates(
       metadata: {
         categoryId: category.categoryId,
         categoryName: category.categoryName,
+        transactionCount: category.transactionCount,
       },
       metricKey,
       period,
@@ -109,6 +123,7 @@ function buildExpenseAggregates(
       metadata: {
         merchantKey: vendor.merchantKey,
         merchantName: vendor.merchantName,
+        transactionCount: vendor.transactionCount,
       },
       metricKey,
       period: vendor.period,

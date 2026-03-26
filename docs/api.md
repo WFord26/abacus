@@ -1924,6 +1924,88 @@ Return the current profit and loss snapshot for a single accounting period.
 
 ---
 
+#### GET /api/v1/reports/expenses-by-category
+
+Return the top expense categories for a single accounting period.
+
+**Authentication**: Required
+
+**Query Parameters**:
+
+- `period` (required): Accounting period in `YYYY-MM` format
+- `limit` (optional): Maximum number of categories to return (default: `10`, max: `100`)
+
+**Response: 200 OK**:
+
+```typescript
+{
+  data: {
+    period: string
+    categories: Array<{
+      categoryId?: string | null
+      categoryName: string
+      amount: number
+      percentage: number
+      transactionCount: number
+    }>
+    total: number
+    generatedAt: string (ISO 8601)
+  }
+}
+```
+
+**Notes**:
+
+- Percentages are rounded to 2 decimals and sum to `100`
+- Uncategorized spend is included when the backing aggregates contain that bucket
+- This route reads from `reporting.metric_aggregates`, not the live ledger schema
+
+**Error Responses**:
+
+- `400 Bad Request`: Missing or invalid `period`, or invalid `limit`
+- `401 Unauthorized`: Missing or invalid token
+
+---
+
+#### GET /api/v1/reports/vendor-spend
+
+Return the top vendors for a single accounting period.
+
+**Authentication**: Required
+
+**Query Parameters**:
+
+- `period` (required): Accounting period in `YYYY-MM` format
+- `limit` (optional): Maximum number of vendors to return (default: `20`, max: `100`)
+
+**Response: 200 OK**:
+
+```typescript
+{
+  data: {
+    period: string
+    vendors: Array<{
+      merchantName: string
+      amount: number
+      transactionCount: number
+    }>
+    generatedAt: string (ISO 8601)
+  }
+}
+```
+
+**Notes**:
+
+- Results are sorted by amount descending
+- This route reads from `reporting.metric_aggregates`, not the live ledger schema
+
+**Error Responses**:
+
+- `400 Bad Request`: Missing or invalid `period`, or invalid `limit`
+- `401 Unauthorized`: Missing or invalid token
+
+---
+
 ## Changelog
 
 ### [Unreleased]

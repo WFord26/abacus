@@ -95,6 +95,12 @@ describe("reporting event processor", () => {
     expect(findAggregate(state, "category_spend:uncategorized:2026-03")?.value).toBe(9.75);
     expect(findAggregate(state, "vendor_spend:coffee-shop:2026-03")?.value).toBe(42.5);
     expect(findAggregate(state, "vendor_spend:unknown-merchant:2026-03")?.value).toBe(9.75);
+    expect(findAggregate(state, "category_spend:category-food:2026-03")?.metadata).toMatchObject({
+      transactionCount: 1,
+    });
+    expect(findAggregate(state, "vendor_spend:coffee-shop:2026-03")?.metadata).toMatchObject({
+      transactionCount: 1,
+    });
   });
 
   it("stays idempotent when transaction.updated is replayed", async () => {
@@ -129,6 +135,11 @@ describe("reporting event processor", () => {
     expect(findAggregate(state, "total_expenses:2026-03")?.value).toBe(100);
     expect(findAggregate(state, "category_spend:category-software:2026-03")?.value).toBe(100);
     expect(findAggregate(state, "vendor_spend:linear:2026-03")?.value).toBe(100);
+    expect(
+      findAggregate(state, "category_spend:category-software:2026-03")?.metadata
+    ).toMatchObject({
+      transactionCount: 1,
+    });
     expect(state.aggregates).toHaveLength(3);
   });
 

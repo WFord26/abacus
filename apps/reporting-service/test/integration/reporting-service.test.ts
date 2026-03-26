@@ -213,4 +213,159 @@ describe("reporting service pnl route", () => {
 
     await app.close();
   });
+
+  it("returns expense-by-category percentages that sum to 100 with transaction counts", async () => {
+    state.metrics = [
+      createMetric({
+        computedAt: "2026-03-25T11:30:00.000Z",
+        metricKey: "category_spend:software:2026-03",
+        metadata: {
+          categoryId: "software",
+          categoryName: "Software & Subscriptions",
+          transactionCount: 3,
+        },
+        organizationId,
+        period: "2026-03",
+        value: 3000,
+      }),
+      createMetric({
+        computedAt: "2026-03-25T11:31:00.000Z",
+        metricKey: "category_spend:travel:2026-03",
+        metadata: {
+          categoryId: "travel",
+          categoryName: "Travel",
+          transactionCount: 2,
+        },
+        organizationId,
+        period: "2026-03",
+        value: 2000,
+      }),
+      createMetric({
+        computedAt: "2026-03-25T11:32:00.000Z",
+        metricKey: "category_spend:uncategorized:2026-03",
+        metadata: {
+          categoryId: null,
+          categoryName: "Uncategorized",
+          transactionCount: 1,
+        },
+        organizationId,
+        period: "2026-03",
+        value: 1000,
+      }),
+    ];
+
+    const app = buildReportingServiceApp({
+      eventSubscriber: createNoopSubscriber(),
+      jwtSecret: JWT_SECRET,
+      repository: createRepository(state),
+    });
+
+    await app.ready();
+
+    const response = await request(app.server)
+      .get("/reports/expenses-by-category?period=2026-03&limit=3")
+      .set("authorization", `Bearer ${createAccessToken()}`);
+
+    expect(response.status).toBe(200);
+    expect(response.body.data.categories).toEqual([
+      {
+        amount: 3000,
+        categoryId: "software",
+        categoryName: "Software & Subscriptions",
+        percentage: 50,
+        transactionCount: 3,
+      },
+      {
+        amount: 2000,
+        categoryId: "travel",
+        categoryName: "Travel",
+        percentage: 33.33,
+        transactionCount: 2,
+      },
+      {
+        amount: 1000,
+        categoryId: null,
+        categoryName: "Uncategorized",
+        percentage: 16.67,
+        transactionCount: 1,
+      },
+    ]);
+    expect(
+      response.body.data.categories.reduce(
+        (sum: number, category: { percentage: number }) => sum + category.percentage,
+        0
+      )
+    ).toBe(100);
+
+    await app.close();
+  });
+
+  it("returns vendor spend ordered by amount and respects limit", async () => {
+    state.metrics = [
+      createMetric({
+        computedAt: "2026-03-25T11:30:00.000Z",
+        metricKey: "vendor_spend:delta:2026-03",
+        metadata: {
+          merchantKey: "delta",
+          merchantName: "Delta",
+          transactionCount: 1,
+        },
+        organizationId,
+        period: "2026-03",
+        value: 850,
+      }),
+      createMetric({
+        computedAt: "2026-03-25T11:31:00.000Z",
+        metricKey: "vendor_spend:uber:2026-03",
+        metadata: {
+          merchantKey: "uber",
+          merchantName: "Uber",
+          transactionCount: 4,
+        },
+        organizationId,
+        period: "2026-03",
+        value: 420,
+      }),
+      createMetric({
+        computedAt: "2026-03-25T11:32:00.000Z",
+        metricKey: "vendor_spend:coffee-shop:2026-03",
+        metadata: {
+          merchantKey: "coffee-shop",
+          merchantName: "Coffee Shop",
+          transactionCount: 3,
+        },
+        organizationId,
+        period: "2026-03",
+        value: 120,
+      }),
+    ];
+
+    const app = buildReportingServiceApp({
+      eventSubscriber: createNoopSubscriber(),
+      jwtSecret: JWT_SECRET,
+      repository: createRepository(state),
+    });
+
+    await app.ready();
+
+    const response = await request(app.server)
+      .get("/reports/vendor-spend?period=2026-03&limit=2")
+      .set("authorization", `Bearer ${createAccessToken()}`);
+
+    expect(response.status).toBe(200);
+    expect(response.body.data.vendors).toEqual([
+      {
+        amount: 850,
+        merchantName: "Delta",
+        transactionCount: 1,
+      },
+      {
+        amount: 420,
+        merchantName: "Uber",
+        transactionCount: 4,
+      },
+    ]);
+
+    await app.close();
+  });
 });

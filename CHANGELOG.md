@@ -29,6 +29,8 @@ Versioning: CalVer YYYY.MM.DD
 - T-091: Web CSV import wizard with upload, preview, column mapping memory, date-format detection, staged import progress, and result drilldowns.
 - T-100: Reporting service event subscriber with Redis consumer-group startup, idempotent expense aggregate rebuilds, and unit coverage for handler and failure paths.
 - T-101: Reporting service `GET /reports/pnl` route with authenticated period validation, aggregate-backed expense rollups, and empty-period handling.
+- T-102: Reporting service `GET /reports/expenses-by-category` route with aggregate-backed percentages, uncategorized support, and transaction counts.
+- T-103: Reporting service `GET /reports/vendor-spend` route with top-vendor ordering, limit handling, and aggregate-backed transaction counts.
 - Identity bootstrap: one-time first-admin setup endpoints for fresh environments via `/api/v1/auth/bootstrap-status` and `/api/v1/auth/bootstrap-admin`.
 
 ### Changed
