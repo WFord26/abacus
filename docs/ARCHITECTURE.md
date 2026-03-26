@@ -820,23 +820,21 @@ TIER 4 (requires: T-022, T-031, T-041, T-042)
   T-052  Ledger Service — manual transaction entry
   T-053  Ledger Service — CSV import pipeline
   T-054  Ledger Service — transaction review states
-  T-055  API Gateway — ledger service routing
   T-060  Web — accounts management page
   T-061  Web — categories management page
   T-062  Web — transactions table + filters
 
-TIER 5 (requires: T-050–T-055, T-060–T-062)
+TIER 5 (requires: T-050–T-054, T-060–T-062)
   T-070  Ledger Service — reconciliation
   T-071  Ledger Service — transaction split
   T-072  Ledger Service — duplicate detection in import
-  T-080  Documents Service — upload pipeline (signed URLs + S3)
-  T-081  Documents Service — file metadata storage
-  T-082  Documents Service — transaction linking
+  T-080  Documents Service — upload pipeline
+  T-081  Documents Service — transaction linking
+  T-082  Web — receipt upload UI
   T-090  Web — dashboard summary cards
   T-091  Web — CSV import UI + review
-  T-092  Web — receipt upload UI (mobile-friendly)
 
-TIER 6 (requires: T-080–T-082, T-090–T-092)
+TIER 6 (requires: T-080–T-082, T-090–T-091)
   T-100  Reporting Service — event subscribers setup
   T-101  Reporting Service — P&L report
   T-102  Reporting Service — expense by category report
@@ -845,18 +843,14 @@ TIER 6 (requires: T-080–T-082, T-090–T-092)
   T-105  Reporting Service — CSV export job
   T-110  Web — reports dashboard
   T-111  Web — expense review queue UI
-  T-112  API Gateway — reporting service routing
 
-TIER 7 (requires: T-100–T-112)
+TIER 7 (requires: T-100–T-111)
   T-120  Expenses Service — expense views + merchant normalization
   T-121  Expenses Service — review queue service
   T-122  Expenses Service — categorization rules engine
-  T-130  Invoicing Service — customers CRUD
-  T-131  Invoicing Service — invoices + line items
-  T-132  Invoicing Service — invoice PDF generation
-  T-133  Invoicing Service — mark-paid + ledger event
-  T-140  Web — invoicing pages (customers, invoices)
-  T-141  API Gateway — invoicing service routing
+  T-130  Invoicing Service — customers + invoices
+  T-131  Invoicing Service — PDF generation
+  T-140  Web — invoicing pages
 ```
 
 ---
@@ -1209,13 +1203,11 @@ Use this checklist to track implementation progress across the architecture plan
 - [x] T-131 — Invoicing Service — PDF Generation
 - [x] T-140 — Web — Invoicing Pages
 
-> Note: `T-031` appears in the dependency graph but does not yet have detailed task specs in this registry. Keep it on the checklist so it is not lost during planning.
-
 ---
 
 ### Currently Missing (Verified Against Codebase)
 
-The following items were re-verified against the repository on **2026-03-25** and are
+The following items were re-verified against the repository on **2026-03-26** and are
 currently missing from the implementation, even though they are either implied by the
 architecture, required for production readiness, or needed to keep this document aligned with
 the codebase.
@@ -1251,17 +1243,16 @@ splits, or duplicate detection in CSV imports.
       migrate-all, and first-admin seeding. `.env` can be created from `.env.example`, local
       services share one env resolver, and the README now documents the repeatable bootstrap path.
 
-- [ ] **Currently missing — Architecture-to-code sync pass**
-      The dependency graph and checklist have drifted apart in a few places, and the checklist no
-      longer reflects every implemented or planned slice. This document needs an explicit maintenance
-      pass whenever major implementation milestones land so it remains the planning source of truth.
+- [x] **Currently missing — Architecture-to-code sync pass**
+      The dependency graph, checklist, milestone summary, and late-tier task descriptions have now
+      been reconciled to the implemented codebase. This pass removes stale task splits, aligns the
+      documents and invoicing tiers with the current registry, and records the architecture document
+      as a maintained source of truth again.
 
 **Suggested follow-up tracking tasks:**
 
-- `T-014` — Service containerization + Dockerfiles for all deployable apps
-- `T-015` — Azure IaC scaffold (`infrastructure/bicep`, params, deploy scripts)
-- `T-132` — Ledger consumer for `invoice.paid` income transaction creation
-- `T-007` — Architecture doc synchronization and registry reconciliation
+- No additional untracked follow-up tasks are needed at this time. Previously missing items have
+  either been implemented directly or reconciled back into the main registry above.
 
 ---
 
@@ -2405,7 +2396,7 @@ GET    /documents/by-transaction/:transactionId  # Get docs for a transaction
 **Dependencies:** T-040, T-052, T-053  
 **Estimated complexity:** Medium
 
-**Objective:** Build the `/` (dashboard) page with summary metric cards. Data comes from the Reporting Service (T-104) but this task uses placeholder/mock data until that task is complete. The component must be wired to the real API endpoint once T-104 is done.
+**Objective:** Build the `/` (dashboard) page with summary metric cards using live gateway-backed data. The page should stay compatible with the Reporting Service dashboard aggregate contract (`T-104`) so the backing data source can evolve without redesigning the UI.
 
 **Cards to display:**
 
@@ -2777,15 +2768,15 @@ Complete tasks: T-050, T-051, T-052, T-053, T-054, T-060, T-061, T-062
 
 Complete tasks: T-080, T-081, T-082, T-090, T-091
 
-**Infrastructure gate:** Configure Azure Blob Storage for documents-service (bucket, CORS, lifecycle policy).
+**Infrastructure gate:** Configure S3-compatible object storage for documents-service uploads, CORS, and retention policy behavior.
 
 **Exit criteria:** User can upload receipts, link them to transactions, see the dashboard summary, and use the full CSV import wizard.
 
 ### Phase 4 — Reporting (Week 7–9)
 
-Complete tasks: T-100, T-101, T-102, T-103, T-104, T-105, T-110
+Complete tasks: T-100, T-101, T-102, T-103, T-104, T-105, T-110, T-111
 
-**Exit criteria:** User can view P&L, expense breakdown by category, vendor spend, and export a CSV of transactions.
+**Exit criteria:** User can view P&L, expense breakdown by category, vendor spend, review the expense queue, and export a CSV of transactions.
 
 ### Phase 5 — Azure MVP Deploy (Week 9–10)
 

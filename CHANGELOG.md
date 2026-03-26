@@ -48,6 +48,7 @@ Versioning: CalVer YYYY.MM.DD
 ### Changed
 
 - Architecture: drafted the missing `T-041` and `T-042` task specs for web auth onboarding and the authenticated shell layout.
+- Architecture: reconciled the dependency graph, missing-items section, dashboard task wording, and milestone summaries with the implemented documents, reporting, invoicing, and local-setup slices.
 - API docs: updated `docs/api.md` to reflect the gateway-backed `/api/v1` routes and the implemented identity endpoints.
 
 ### Fixed
