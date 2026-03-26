@@ -25,6 +25,8 @@ Versioning: CalVer YYYY.MM.DD
 - T-080: Documents service upload pipeline with presigned S3-compatible URLs, pending-to-finalized metadata persistence, signed downloads, delete cleanup, and `receipt.uploaded` events.
 - T-081: Documents service transaction-linking routes with org-aware ledger validation and signed document retrieval by transaction.
 - T-082: Web receipts workspace with thumbnail previews, unlinked filtering, XHR upload progress, mobile capture support, and transaction-row receipt attachment.
+- T-090: Web dashboard summary cards with five-minute refreshes, ledger-backed month metrics, account balance snapshots, and recent transaction activity.
+- T-091: Web CSV import wizard with upload, preview, column mapping memory, date-format detection, staged import progress, and result drilldowns.
 - Identity bootstrap: one-time first-admin setup endpoints for fresh environments via `/api/v1/auth/bootstrap-status` and `/api/v1/auth/bootstrap-admin`.
 
 ### Changed
