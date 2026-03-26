@@ -175,7 +175,12 @@ export function createLedgerTransactionsService(
         throw new LedgerServiceError("NOT_FOUND", "Transaction not found", 404);
       }
 
-      const { isActive: _isActive, ...result } = transaction;
+      const {
+        isActive: _isActive,
+        sourceId: _sourceId,
+        sourceType: _sourceType,
+        ...result
+      } = transaction;
       return result;
     },
 

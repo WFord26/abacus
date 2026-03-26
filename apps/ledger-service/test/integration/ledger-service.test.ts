@@ -53,6 +53,8 @@ type StoredTransaction = {
   merchantRaw: string | null;
   organizationId: string;
   reviewStatus: Transaction["reviewStatus"];
+  sourceId: string | null;
+  sourceType: string | null;
   updatedAt: string;
 };
 
@@ -325,6 +327,8 @@ function createTransactionRecord(input: {
   merchantRaw?: string | null;
   organizationId: string;
   reviewStatus?: Transaction["reviewStatus"];
+  sourceId?: string | null;
+  sourceType?: string | null;
   updatedAt?: string;
 }): StoredTransaction {
   return {
@@ -342,6 +346,8 @@ function createTransactionRecord(input: {
     merchantRaw: input.merchantRaw ?? null,
     organizationId: input.organizationId,
     reviewStatus: input.reviewStatus ?? "unreviewed",
+    sourceId: input.sourceId ?? null,
+    sourceType: input.sourceType ?? null,
     updatedAt: input.updatedAt ?? new Date().toISOString(),
   };
 }
@@ -429,6 +435,18 @@ function createTransactionRepository(state: RepoState): LedgerTransactionReposit
       adjustAccountStats(transaction.accountId, transaction.amount, 1);
       adjustCategoryStats(transaction.categoryId ?? null, 1);
       return toTransaction(transaction);
+    },
+
+    async findTransactionBySourceReference(input) {
+      const transaction = [...state.transactions.values()].find(
+        (candidate) =>
+          candidate.organizationId === input.organizationId &&
+          candidate.sourceId === input.sourceId &&
+          candidate.sourceType === input.sourceType &&
+          candidate.isActive
+      );
+
+      return transaction ? toTransaction(transaction) : null;
     },
 
     async findTransactionsByDuplicateCandidates({ accountId, candidates, organizationId }) {

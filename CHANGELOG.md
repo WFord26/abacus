@@ -39,7 +39,9 @@ Versioning: CalVer YYYY.MM.DD
 - T-131: Invoicing service PDF generation with cached S3-compatible storage and signed invoice download URLs.
 - T-140: Web customers and invoices workspaces with a full-page invoice editor, live totals, read-only sent invoices, and customer invoice history.
 - Deployment scaffold: added per-service Dockerfiles for deployable backends, a root `.dockerignore`, Azure Bicep infrastructure modules/parameters, and helper scripts for bootstrap, deploy, and schema migration runs.
+- Ledger subscriber: added `invoice.paid` Redis stream consumption with replay-safe income transaction creation on the Revenue account and downstream `transaction.created` publishing.
 - Identity bootstrap: one-time first-admin setup endpoints for fresh environments via `/api/v1/auth/bootstrap-status` and `/api/v1/auth/bootstrap-admin`.
+- Identity email flows: added Resend-backed invite, verification, and magic-link delivery with persisted one-time email tokens and web callback pages for `/verify-email` and `/magic-link`.
 
 ### Changed
 

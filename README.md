@@ -72,12 +72,25 @@ curl -X POST http://127.0.0.1:3000/api/v1/auth/bootstrap-admin \
 The web app now detects that bootstrap state automatically and routes fresh environments to
 `/bootstrap` instead of the normal sign-in screen.
 
+Identity email delivery now supports Resend-backed invite emails, verification emails, and
+magic-link sign-in when these env vars are set:
+
+```bash
+RESEND_API_KEY='re_...'
+RESEND_FROM_EMAIL='Abacus <auth@your-domain.example>'
+RESEND_REPLY_TO='support@your-domain.example' # optional
+FRONTEND_ORIGIN='http://127.0.0.1:3007'
+```
+
 If you want to run them individually instead, use:
 
 ```bash
 DATABASE_URL='postgresql://postgres:postgres@localhost:15432/accounting?schema=identity' \
 REDIS_URL='redis://localhost:16379' \
 JWT_SECRET='development-secret' \
+FRONTEND_ORIGIN='http://127.0.0.1:3007' \
+RESEND_API_KEY='re_...' \
+RESEND_FROM_EMAIL='Abacus <auth@your-domain.example>' \
 npx --yes pnpm --filter @wford26/accounting-identity-service start
 
 DATABASE_URL='postgresql://postgres:postgres@localhost:15432/accounting?schema=ledger' \

@@ -10,6 +10,11 @@ import {
   type PasswordHasher,
   type RefreshTokenStore,
 } from "./lib/auth";
+import {
+  createNoopEmailSender,
+  createResendEmailSender,
+  type IdentityEmailSender,
+} from "./lib/email";
 import { IdentityServiceError } from "./lib/errors";
 import databasePlugin from "./plugins/database";
 import {
@@ -24,7 +29,9 @@ import { createIdentityService } from "./services/identity.service";
 import type { PrismaClient } from "@prisma/client";
 
 export type BuildIdentityServiceOptions = {
+  appOrigin?: string;
   db?: PrismaClient;
+  emailSender?: IdentityEmailSender;
   jwtSecret?: string;
   passwordHasher?: PasswordHasher;
   refreshTokenStore?: RefreshTokenStore;
@@ -111,8 +118,11 @@ export function buildIdentityServiceApp(options: BuildIdentityServiceOptions = {
     publicPathPrefixes: [
       "/auth/bootstrap-admin",
       "/auth/bootstrap-status",
+      "/auth/email-verification/consume",
       "/auth/login",
       "/auth/logout",
+      "/auth/magic-link/consume",
+      "/auth/magic-link/request",
       "/auth/refresh",
       "/auth/register",
       "/health",
@@ -138,12 +148,27 @@ export function buildIdentityServiceApp(options: BuildIdentityServiceOptions = {
         ? createRedisRefreshTokenStore(process.env.REDIS_URL)
         : createInMemoryRefreshTokenStore());
     const passwordHasher = options.passwordHasher ?? createBcryptPasswordHasher();
+    const appOrigin = options.appOrigin ?? process.env.FRONTEND_ORIGIN ?? "http://127.0.0.1:3007";
+    const emailSender =
+      options.emailSender ??
+      (process.env.RESEND_API_KEY && process.env.RESEND_FROM_EMAIL
+        ? createResendEmailSender({
+            apiKey: process.env.RESEND_API_KEY,
+            from: process.env.RESEND_FROM_EMAIL,
+            ...(process.env.RESEND_REPLY_TO ? { replyTo: process.env.RESEND_REPLY_TO } : {}),
+          })
+        : createNoopEmailSender());
     const authService = createAuthService(repository, {
+      appOrigin,
+      emailSender,
       jwtSecret,
       passwordHasher,
       refreshTokenStore,
     });
-    const service = createIdentityService(repository);
+    const service = createIdentityService(repository, {
+      appOrigin,
+      emailSender,
+    });
 
     fastify.register(authRoutes, {
       service: authService,

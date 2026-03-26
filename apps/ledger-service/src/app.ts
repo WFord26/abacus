@@ -4,7 +4,12 @@ import { fastifyAuthPlugin, type AuthError } from "@wford26/auth-sdk";
 import Fastify from "fastify";
 
 import { LedgerServiceError } from "./lib/errors";
-import { createNoopLedgerEventPublisher, createRedisLedgerEventPublisher } from "./lib/events";
+import {
+  createNoopLedgerEventPublisher,
+  createNoopLedgerEventSubscriber,
+  createRedisLedgerEventPublisher,
+  createRedisLedgerEventSubscriber,
+} from "./lib/events";
 import databasePlugin from "./plugins/database";
 import {
   createPrismaLedgerAccountRepository,
@@ -29,16 +34,22 @@ import transactionsRoutes from "./routes/v1/transactions.routes";
 import { createLedgerAccountsService } from "./services/accounts.service";
 import { createLedgerCategoriesService } from "./services/categories.service";
 import { createLedgerImportBatchesService } from "./services/import-batches.service";
+import {
+  createLedgerEventProcessor,
+  type LedgerEventProcessor,
+} from "./services/invoice-settlement.service";
 import { createLedgerTransactionsService } from "./services/transactions.service";
 
-import type { LedgerEventPublisher } from "./lib/events";
+import type { LedgerEventPublisher, LedgerEventSubscriber } from "./lib/events";
 import type { PrismaClient } from "@prisma/client";
 
 export type BuildLedgerServiceOptions = {
   accountRepository?: LedgerAccountRepository;
   categoryRepository?: LedgerCategoryRepository;
   db?: PrismaClient;
+  eventProcessor?: LedgerEventProcessor;
   eventPublisher?: LedgerEventPublisher;
+  eventSubscriber?: LedgerEventSubscriber;
   importBatchRepository?: LedgerImportBatchRepository;
   jwtSecret?: string;
   transactionRepository?: LedgerTransactionRepository;
@@ -190,6 +201,23 @@ export function buildLedgerServiceApp(options: BuildLedgerServiceOptions = {}) {
       (process.env.REDIS_URL
         ? createRedisLedgerEventPublisher(process.env.REDIS_URL)
         : createNoopLedgerEventPublisher());
+    const eventProcessor =
+      options.eventProcessor ??
+      createLedgerEventProcessor(
+        transactionRepository,
+        accountRepository,
+        eventPublisher,
+        fastify.log
+      );
+    const eventSubscriber =
+      options.eventSubscriber ??
+      (process.env.REDIS_URL
+        ? createRedisLedgerEventSubscriber({
+            logger: fastify.log,
+            processor: eventProcessor,
+            redisUrl: process.env.REDIS_URL,
+          })
+        : createNoopLedgerEventSubscriber());
     const accountsService = createLedgerAccountsService(accountRepository);
     const categoriesService = createLedgerCategoriesService(categoryRepository);
     const transactionsService = createLedgerTransactionsService(
@@ -220,6 +248,14 @@ export function buildLedgerServiceApp(options: BuildLedgerServiceOptions = {}) {
 
     fastify.register(importBatchesRoutes, {
       service: importBatchesService,
+    });
+
+    fastify.addHook("onReady", async () => {
+      await eventSubscriber.start();
+    });
+
+    fastify.addHook("onClose", async () => {
+      await eventSubscriber.stop();
     });
   });
 

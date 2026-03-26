@@ -8,6 +8,7 @@ import {
 } from "../lib/auth";
 import { IdentityServiceError } from "../lib/errors";
 
+import type { IdentityEmailSender } from "../lib/email";
 import type { IdentityRepository } from "../repositories/identity.repo";
 import type { AuthTokens, Organization, Role, User } from "@wford26/shared-types";
 
@@ -20,6 +21,24 @@ type RegisterRequest = {
 type LoginRequest = {
   email: string;
   password: string;
+};
+
+type MagicLinkRequest = {
+  email: string;
+};
+
+type MagicLinkConsumeRequest = {
+  currentRefreshToken?: string | undefined;
+  token: string;
+};
+
+type EmailVerificationRequest = {
+  userId: string;
+};
+
+type EmailVerificationResponse = {
+  user: User;
+  verified: true;
 };
 
 type SwitchOrganizationRequest = {
@@ -37,6 +56,9 @@ type AuthSessionResponse = {
 type BootstrapStatusResponse = {
   available: boolean;
 };
+
+const EMAIL_VERIFICATION_TTL_MS = 1000 * 60 * 60 * 24;
+const MAGIC_LINK_TTL_MS = 1000 * 60 * 30;
 
 function slugify(value: string) {
   const slug = value
@@ -62,11 +84,65 @@ function createPersonalOrganizationName(name: string, email: string) {
 export function createAuthService(
   repository: IdentityRepository,
   options: {
+    appOrigin: string;
+    emailSender: IdentityEmailSender;
     jwtSecret: string;
     passwordHasher: PasswordHasher;
     refreshTokenStore: RefreshTokenStore;
   }
 ) {
+  function buildAppUrl(pathname: string, params: Record<string, string>) {
+    const url = new URL(pathname, options.appOrigin);
+
+    Object.entries(params).forEach(([key, value]) => {
+      url.searchParams.set(key, value);
+    });
+
+    return url.toString();
+  }
+
+  async function sendVerificationEmail(user: User) {
+    const emailToken = await repository.createEmailToken({
+      email: user.email,
+      expiresAt: new Date(Date.now() + EMAIL_VERIFICATION_TTL_MS),
+      type: "verification",
+      userId: user.id,
+    });
+    const verificationUrl = buildAppUrl("/verify-email", {
+      token: emailToken.token,
+    });
+
+    await options.emailSender.send({
+      html: `<p>Hi ${user.name ?? user.email},</p><p>Confirm your email for Abacus.</p><p><a href="${verificationUrl}">Verify your email</a></p><p>This link expires in 24 hours.</p>`,
+      subject: "Verify your Abacus email",
+      text: `Hi ${user.name ?? user.email},\n\nConfirm your email for Abacus: ${verificationUrl}\n\nThis link expires in 24 hours.`,
+      to: user.email,
+    });
+  }
+
+  async function trySendVerificationEmail(user: User) {
+    try {
+      await sendVerificationEmail(user);
+    } catch (error) {
+      console.error("failed to send verification email", {
+        email: user.email,
+        error,
+      });
+    }
+  }
+
+  async function resolveUserForToken(input: { email: string; userId?: string | null }) {
+    if (input.userId) {
+      const user = await repository.findUserById(input.userId);
+
+      if (user) {
+        return user;
+      }
+    }
+
+    return repository.findUserByEmail(input.email.toLowerCase());
+  }
+
   async function buildUniqueSlug(name: string) {
     const baseSlug = slugify(name);
     let candidateSlug = baseSlug;
@@ -191,7 +267,9 @@ export function createAuthService(
         );
       }
 
-      return registerUser(input);
+      const session = await registerUser(input);
+      await trySendVerificationEmail(session.user);
+      return session;
     },
 
     async getBootstrapStatus(): Promise<BootstrapStatusResponse> {
@@ -228,6 +306,59 @@ export function createAuthService(
         organization: membership.organization,
         tokens,
         user,
+      };
+    },
+
+    async consumeMagicLink(input: MagicLinkConsumeRequest): Promise<AuthSessionResponse> {
+      const tokenRecord = await repository.consumeEmailToken("magic_link", input.token);
+
+      if (!tokenRecord) {
+        throw new IdentityServiceError("UNAUTHORIZED", "Magic link is invalid or expired", 401);
+      }
+
+      const user = await resolveUserForToken(tokenRecord);
+
+      if (!user) {
+        throw new IdentityServiceError("UNAUTHORIZED", "Magic link is invalid or expired", 401);
+      }
+
+      const membership = await resolvePrimaryMembership(user.id);
+
+      return issueSessionForMembership({
+        currentRefreshToken: input.currentRefreshToken,
+        membership,
+        user,
+      });
+    },
+
+    async consumeVerificationToken(token: string): Promise<EmailVerificationResponse> {
+      const tokenRecord = await repository.consumeEmailToken("verification", token);
+
+      if (!tokenRecord) {
+        throw new IdentityServiceError(
+          "UNAUTHORIZED",
+          "Verification link is invalid or expired",
+          401
+        );
+      }
+
+      const user = await resolveUserForToken(tokenRecord);
+
+      if (!user) {
+        throw new IdentityServiceError(
+          "UNAUTHORIZED",
+          "Verification link is invalid or expired",
+          401
+        );
+      }
+
+      const verifiedUser = await repository.updateUserAuth(user.id, {
+        emailVerified: true,
+      });
+
+      return {
+        user: verifiedUser,
+        verified: true,
       };
     },
 
@@ -310,7 +441,68 @@ export function createAuthService(
     },
 
     async register(input: RegisterRequest): Promise<AuthSessionResponse> {
-      return registerUser(input);
+      const session = await registerUser(input);
+      await trySendVerificationEmail(session.user);
+      return session;
+    },
+
+    async requestEmailVerification(input: EmailVerificationRequest) {
+      const user = await repository.findUserById(input.userId);
+
+      if (!user) {
+        throw new IdentityServiceError("NOT_FOUND", "User not found", 404);
+      }
+
+      if (user.emailVerified) {
+        return {
+          accepted: true,
+        };
+      }
+
+      await sendVerificationEmail(user);
+
+      return {
+        accepted: true,
+      };
+    },
+
+    async requestMagicLink(input: MagicLinkRequest) {
+      const user = await repository.findUserByEmail(input.email.toLowerCase());
+
+      if (!user) {
+        return {
+          accepted: true,
+        };
+      }
+
+      const membership = await repository.findFirstActiveMembershipForUser(user.id);
+
+      if (!membership) {
+        return {
+          accepted: true,
+        };
+      }
+
+      const emailToken = await repository.createEmailToken({
+        email: user.email,
+        expiresAt: new Date(Date.now() + MAGIC_LINK_TTL_MS),
+        type: "magic_link",
+        userId: user.id,
+      });
+      const magicLinkUrl = buildAppUrl("/magic-link", {
+        token: emailToken.token,
+      });
+
+      await options.emailSender.send({
+        html: `<p>Hi ${user.name ?? user.email},</p><p>Use the link below to sign in to Abacus.</p><p><a href="${magicLinkUrl}">Sign in with magic link</a></p><p>This link expires in 30 minutes.</p>`,
+        subject: "Your Abacus sign-in link",
+        text: `Hi ${user.name ?? user.email},\n\nUse this link to sign in to Abacus: ${magicLinkUrl}\n\nThis link expires in 30 minutes.`,
+        to: user.email,
+      });
+
+      return {
+        accepted: true,
+      };
     },
   };
 }

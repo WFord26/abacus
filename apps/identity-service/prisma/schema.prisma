@@ -16,6 +16,7 @@ model User {
   avatarUrl     String?      @map("avatar_url")
   createdAt     DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt     DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  emailTokens   EmailToken[]
   memberships   Membership[]
 
   @@map("users")
@@ -44,4 +45,19 @@ model Membership {
 
   @@unique([userId, organizationId])
   @@map("memberships")
+}
+
+model EmailToken {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId     String?   @map("user_id") @db.Uuid
+  email      String
+  type       String
+  tokenHash  String    @unique @map("token_hash")
+  expiresAt  DateTime  @map("expires_at") @db.Timestamptz(6)
+  consumedAt DateTime? @map("consumed_at") @db.Timestamptz(6)
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  user       User?     @relation(fields: [userId], references: [id])
+
+  @@index([email, type])
+  @@map("email_tokens")
 }

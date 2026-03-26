@@ -30,3 +30,17 @@ CREATE TABLE IF NOT EXISTS identity.memberships (
   created_at TIMESTAMPTZ DEFAULT NOW(),
   UNIQUE (user_id, organization_id)
 );
+
+CREATE TABLE IF NOT EXISTS identity.email_tokens (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES identity.users(id),
+  email TEXT NOT NULL,
+  type TEXT NOT NULL CHECK (type IN ('verification', 'magic_link')),
+  token_hash TEXT UNIQUE NOT NULL,
+  expires_at TIMESTAMPTZ NOT NULL,
+  consumed_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS identity_email_tokens_email_type_idx
+  ON identity.email_tokens (email, type);

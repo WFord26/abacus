@@ -24,6 +24,9 @@ Public auth exceptions:
 - `POST /api/v1/auth/bootstrap-admin`
 - `POST /api/v1/auth/register`
 - `POST /api/v1/auth/login`
+- `POST /api/v1/auth/magic-link/request`
+- `POST /api/v1/auth/magic-link/consume`
+- `POST /api/v1/auth/email-verification/consume`
 - `POST /api/v1/auth/refresh`
 - `POST /api/v1/auth/logout`
 
@@ -57,8 +60,9 @@ The current web onboarding flow uses these API calls in sequence:
 Returning-user sign-in uses:
 
 1. `POST /api/v1/auth/login`
-2. `POST /api/v1/auth/refresh` when the access token expires
-3. `POST /api/v1/auth/switch-organization` when the active org changes
+2. Optional passwordless path: `POST /api/v1/auth/magic-link/request`, then `POST /api/v1/auth/magic-link/consume`
+3. `POST /api/v1/auth/refresh` when the access token expires
+4. `POST /api/v1/auth/switch-organization` when the active org changes
 
 ### Base URLs
 
@@ -284,6 +288,128 @@ Authenticate a user and return an authenticated session for their first active o
 - `400 Bad Request`: Missing email or password
 - `401 Unauthorized`: Invalid credentials
 - `403 Forbidden`: User has no active organization membership
+
+---
+
+#### POST /api/v1/auth/magic-link/request
+
+Request a passwordless sign-in email for an existing account. The response is intentionally generic.
+
+**Authentication**: Not required
+
+**Request**:
+
+```typescript
+{
+  email: string;
+}
+```
+
+**Response: 200 OK**:
+
+```typescript
+{
+  data: {
+    accepted: true;
+  }
+}
+```
+
+**Notes**:
+
+- When the email belongs to an account with an active membership, the identity service sends a Resend-backed sign-in email
+- Unknown emails still return the same response shape to avoid account enumeration
+
+---
+
+#### POST /api/v1/auth/magic-link/consume
+
+Consume a one-time magic-link token and return an authenticated session.
+
+**Authentication**: Not required
+
+**Request**:
+
+```typescript
+{
+  token: string;
+}
+```
+
+**Response: 200 OK**:
+
+Same response shape as `POST /api/v1/auth/login`.
+
+**Error Responses**:
+
+- `400 Bad Request`: Missing token
+- `401 Unauthorized`: Token is invalid or expired
+- `403 Forbidden`: User has no active organization membership
+
+---
+
+#### POST /api/v1/auth/email-verification/request
+
+Send a fresh verification email for the current authenticated user.
+
+**Authentication**: Required
+
+**Request body**: none
+
+**Response: 200 OK**:
+
+```typescript
+{
+  data: {
+    accepted: true;
+  }
+}
+```
+
+**Error Responses**:
+
+- `401 Unauthorized`: Missing or invalid access token
+- `404 Not Found`: User does not exist
+
+---
+
+#### POST /api/v1/auth/email-verification/consume
+
+Consume a one-time email verification token.
+
+**Authentication**: Not required
+
+**Request**:
+
+```typescript
+{
+  token: string;
+}
+```
+
+**Response: 200 OK**:
+
+```typescript
+{
+  data: {
+    verified: true;
+    user: {
+      id: string
+      email: string
+      emailVerified: boolean
+      name: string | null
+      avatarUrl: string | null
+      createdAt: string (ISO 8601)
+      updatedAt: string (ISO 8601)
+    }
+  }
+}
+```
+
+**Error Responses**:
+
+- `400 Bad Request`: Missing token
+- `401 Unauthorized`: Token is invalid or expired
 
 ---
 

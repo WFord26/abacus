@@ -3,7 +3,9 @@ import { success } from "../../lib/response";
 import { sanitizeOrganization, sanitizeUser } from "../../lib/serialize";
 import { parseSchema } from "../../lib/validation";
 import {
+  emailTokenBodySchema,
   loginBodySchema,
+  magicLinkRequestBodySchema,
   registerBodySchema,
   switchOrganizationBodySchema,
 } from "../../schemas/identity.schema";
@@ -81,6 +83,59 @@ const authRoutes: FastifyPluginAsync<AuthRoutesOptions> = async (fastify, option
       });
     }
   );
+
+  fastify.post(
+    "/auth/magic-link/request",
+    {
+      config: {
+        rateLimit: {
+          max: 5,
+          timeWindow: "15 minutes",
+        },
+      },
+    },
+    async (request) => {
+      const body = parseSchema(magicLinkRequestBodySchema, request.body);
+      const result = await options.service.requestMagicLink(body);
+
+      return success(result);
+    }
+  );
+
+  fastify.post("/auth/magic-link/consume", async (request, reply) => {
+    const body = parseSchema(emailTokenBodySchema, request.body);
+    const refreshToken = request.cookies[REFRESH_TOKEN_COOKIE_NAME];
+    const session = await options.service.consumeMagicLink({
+      currentRefreshToken: refreshToken,
+      token: body.token,
+    });
+
+    reply.setCookie(REFRESH_TOKEN_COOKIE_NAME, session.tokens.refreshToken, refreshCookieOptions);
+
+    return success({
+      organization: sanitizeOrganization(session.organization),
+      tokens: session.tokens,
+      user: sanitizeUser(session.user),
+    });
+  });
+
+  fastify.post("/auth/email-verification/request", async (request) => {
+    const result = await options.service.requestEmailVerification({
+      userId: request.user!.userId,
+    });
+
+    return success(result);
+  });
+
+  fastify.post("/auth/email-verification/consume", async (request) => {
+    const body = parseSchema(emailTokenBodySchema, request.body);
+    const result = await options.service.consumeVerificationToken(body.token);
+
+    return success({
+      user: sanitizeUser(result.user),
+      verified: result.verified,
+    });
+  });
 
   fastify.post("/auth/refresh", async (request, reply) => {
     const refreshToken = request.cookies[REFRESH_TOKEN_COOKIE_NAME];

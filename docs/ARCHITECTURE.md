@@ -279,6 +279,17 @@ identity.memberships (
   created_at TIMESTAMPTZ DEFAULT NOW(),
   UNIQUE(user_id, organization_id)
 )
+
+identity.email_tokens (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES identity.users(id),
+  email TEXT NOT NULL,
+  type TEXT NOT NULL CHECK (type IN ('verification','magic_link')),
+  token_hash TEXT UNIQUE NOT NULL,
+  expires_at TIMESTAMPTZ NOT NULL,
+  consumed_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+)
 ```
 
 #### ledger schema
@@ -1218,15 +1229,16 @@ splits, or duplicate detection in CSV imports.
       helper scripts so the Azure MVP deployment path has a concrete scaffold instead of a doc-only
       placeholder.
 
-- [ ] **Currently missing — Ledger consumer for invoicing settlement events**
-      `invoice.paid` is published by the invoicing service, but the ledger service does not yet
-      subscribe to that event or create the corresponding income transaction described in the event
-      catalog.
+- [x] **Currently missing — Ledger consumer for invoicing settlement events**
+      The ledger service now subscribes to `invoice.paid`, records a replay-safe income
+      transaction against the org's income account, and emits the downstream `transaction.created`
+      event that reporting already understands.
 
-- [ ] **Currently missing — Identity email flows**
-      The architecture assigns email-based auth responsibilities to identity service, including magic
-      link support. The repo has local MailHog infrastructure, but there is no implemented mailer,
-      invite email flow, email verification flow, or magic-link flow yet.
+- [x] **Currently missing — Identity email flows**
+      Identity now sends Resend-backed invite emails, verification emails, and magic-link sign-in
+      emails. One-time verification and magic-link tokens are persisted in `identity.email_tokens`,
+      and the web app now includes `/verify-email` and `/magic-link` callback routes plus a
+      login-page magic-link request action.
 
 - [ ] **Currently missing — Workspace membership management UI**
       The web app supports listing organizations and switching the active organization, but it still
@@ -1249,7 +1261,6 @@ splits, or duplicate detection in CSV imports.
 - `T-015` — Azure IaC scaffold (`infrastructure/bicep`, params, deploy scripts)
 - `T-016` — Workspace bootstrap + migrate-all + seed automation
 - `T-132` — Ledger consumer for `invoice.paid` income transaction creation
-- `T-023` — Identity email delivery layer (magic links, invite emails, verification emails)
 - `T-043` — Web workspace administration UI (invites, memberships, organization settings)
 - `T-007` — Architecture doc synchronization and registry reconciliation
 

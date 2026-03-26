@@ -30,6 +30,8 @@ CREATE TABLE IF NOT EXISTS ledger.transactions (
   description TEXT,
   merchant_raw TEXT,
   category_id UUID REFERENCES ledger.categories(id),
+  source_type TEXT,
+  source_id TEXT,
   review_status TEXT DEFAULT 'unreviewed' CHECK (review_status IN ('unreviewed', 'reviewed', 'flagged')),
   import_batch_id UUID,
   is_split BOOLEAN DEFAULT FALSE,
@@ -38,6 +40,9 @@ CREATE TABLE IF NOT EXISTS ledger.transactions (
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS ledger_transactions_org_source_key
+  ON ledger.transactions (organization_id, source_type, source_id);
 
 CREATE TABLE IF NOT EXISTS ledger.transaction_lines (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

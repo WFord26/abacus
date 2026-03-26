@@ -7,9 +7,12 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { buildIdentityServiceApp } from "../../src/app";
 import { createInMemoryRefreshTokenStore, type PasswordHasher } from "../../src/lib/auth";
 
+import type { IdentityEmailSender } from "../../src/lib/email";
 import type {
+  CreateEmailTokenInput,
   CreateOrganizationInput,
   CreatePendingMembershipInput,
+  IdentityEmailTokenRecord,
   IdentityMembershipRecord,
   IdentityRepository,
 } from "../../src/repositories/identity.repo";
@@ -24,9 +27,17 @@ import type {
 const JWT_SECRET = "test-secret";
 
 type TestState = {
+  emailTokens: Map<string, IdentityEmailTokenRecord & { token: string }>;
   memberships: Map<string, IdentityMembershipRecord>;
   organizations: Map<string, Organization>;
   users: Map<string, User>;
+};
+
+type SentEmail = {
+  html: string;
+  subject: string;
+  text: string;
+  to: string;
 };
 
 const testPasswordHasher: PasswordHasher = {
@@ -111,6 +122,26 @@ function createRepository(state: TestState): IdentityRepository {
       return [...state.users.values()].filter((user) => user.passwordHash !== null).length;
     },
 
+    async createEmailToken(input: CreateEmailTokenInput) {
+      const tokenRecord: IdentityEmailTokenRecord & { token: string } = {
+        consumedAt: null,
+        createdAt: new Date().toISOString(),
+        email: input.email.toLowerCase(),
+        expiresAt: input.expiresAt.toISOString(),
+        id: randomUUID(),
+        token: `token-${randomUUID()}`,
+        type: input.type,
+        userId: input.userId ?? null,
+      };
+
+      state.emailTokens.set(tokenRecord.token, tokenRecord);
+
+      return {
+        token: tokenRecord.token,
+        tokenRecord,
+      };
+    },
+
     async createUser(input) {
       const user = createUser({
         email: input.email,
@@ -183,6 +214,26 @@ function createRepository(state: TestState): IdentityRepository {
       state.memberships.set(createMembershipKey(user.id, organization.id), membership);
 
       return membership;
+    },
+
+    async consumeEmailToken(type, token) {
+      const emailToken = state.emailTokens.get(token);
+
+      if (!emailToken || emailToken.type !== type || emailToken.consumedAt !== null) {
+        return null;
+      }
+
+      if (new Date(emailToken.expiresAt).getTime() <= Date.now()) {
+        return null;
+      }
+
+      const consumedToken = {
+        ...emailToken,
+        consumedAt: new Date().toISOString(),
+      };
+
+      state.emailTokens.set(token, consumedToken);
+      return consumedToken;
     },
 
     async deleteMembership(organizationId, userId) {
@@ -371,14 +422,31 @@ function createAccessToken(user: User, organizationId: string, role: Role) {
   );
 }
 
+function createEmailSender(sentEmails: SentEmail[]): IdentityEmailSender {
+  return {
+    async send(input) {
+      sentEmails.push(input);
+    },
+  };
+}
+
+function getTokenFromEmail(email: SentEmail) {
+  const match = email.text.match(/token=([A-Za-z0-9-]+)/);
+
+  expect(match?.[1]).toBeDefined();
+  return match![1];
+}
+
 describe("identity-service T-020 routes", () => {
   let app: ReturnType<typeof buildIdentityServiceApp>;
+  let sentEmails: SentEmail[];
   let state: TestState;
   let ownerUser: User;
   let secondaryOwner: User;
   let organization: Organization;
 
   beforeEach(async () => {
+    sentEmails = [];
     ownerUser = createUser({
       email: "owner@example.com",
       id: randomUUID(),
@@ -396,6 +464,7 @@ describe("identity-service T-020 routes", () => {
     });
 
     state = {
+      emailTokens: new Map(),
       memberships: new Map([
         [
           createMembershipKey(ownerUser.id, organization.id),
@@ -418,6 +487,7 @@ describe("identity-service T-020 routes", () => {
     };
 
     app = buildIdentityServiceApp({
+      emailSender: createEmailSender(sentEmails),
       jwtSecret: JWT_SECRET,
       passwordHasher: testPasswordHasher,
       refreshTokenStore: createInMemoryRefreshTokenStore(),
@@ -550,6 +620,11 @@ describe("identity-service T-020 routes", () => {
     expect(response.body.data.status).toBe("pending");
     expect(response.body.data.user.email).toBe("invitee@example.com");
     expect(response.body.data.user.passwordHash).toBeUndefined();
+    expect(sentEmails).toHaveLength(1);
+    expect(sentEmails[0]).toMatchObject({
+      subject: `Invitation to join ${organization.name} on Abacus`,
+      to: "invitee@example.com",
+    });
   });
 
   it("prevents deleting the last active owner", async () => {
@@ -599,16 +674,20 @@ describe("identity-service T-020 routes", () => {
 
 describe("identity-service T-021 auth routes", () => {
   let app: ReturnType<typeof buildIdentityServiceApp>;
+  let sentEmails: SentEmail[];
   let state: TestState;
 
   beforeEach(async () => {
+    sentEmails = [];
     state = {
+      emailTokens: new Map(),
       memberships: new Map(),
       organizations: new Map(),
       users: new Map(),
     };
 
     app = buildIdentityServiceApp({
+      emailSender: createEmailSender(sentEmails),
       jwtSecret: JWT_SECRET,
       passwordHasher: testPasswordHasher,
       refreshTokenStore: createInMemoryRefreshTokenStore(),
@@ -696,6 +775,41 @@ describe("identity-service T-021 auth routes", () => {
     expect(failureResponse.status).toBe(401);
   });
 
+  it("sends verification emails on registration and verifies the account", async () => {
+    const registerResponse = await request(app.server).post("/auth/register").send({
+      email: "verify.user@example.com",
+      name: "Verify User",
+      password: "password123",
+    });
+
+    expect(registerResponse.status).toBe(201);
+    expect(sentEmails).toHaveLength(1);
+    expect(sentEmails[0]).toMatchObject({
+      subject: "Verify your Abacus email",
+      to: "verify.user@example.com",
+    });
+
+    const verificationEmail = sentEmails[0];
+    expect(verificationEmail).toBeDefined();
+
+    const verificationToken = getTokenFromEmail(verificationEmail!);
+    const verificationResponse = await request(app.server)
+      .post("/auth/email-verification/consume")
+      .send({
+        token: verificationToken,
+      });
+
+    expect(verificationResponse.status).toBe(200);
+    expect(verificationResponse.body.data.verified).toBe(true);
+    expect(verificationResponse.body.data.user.emailVerified).toBe(true);
+
+    const replayResponse = await request(app.server).post("/auth/email-verification/consume").send({
+      token: verificationToken,
+    });
+
+    expect(replayResponse.status).toBe(401);
+  });
+
   it("rotates refresh tokens and prevents reuse of the old token", async () => {
     const registerResponse = await request(app.server).post("/auth/register").send({
       email: "refresh.user@example.com",
@@ -725,6 +839,62 @@ describe("identity-service T-021 auth routes", () => {
       .set("Cookie", rotatedCookie);
 
     expect(validRotatedResponse.status).toBe(200);
+  });
+
+  it("requests and consumes a magic link for an existing user", async () => {
+    const registerResponse = await request(app.server).post("/auth/register").send({
+      email: "magic.user@example.com",
+      name: "Magic User",
+      password: "password123",
+    });
+
+    expect(registerResponse.status).toBe(201);
+    sentEmails.length = 0;
+
+    const requestResponse = await request(app.server).post("/auth/magic-link/request").send({
+      email: "magic.user@example.com",
+    });
+
+    expect(requestResponse.status).toBe(200);
+    expect(requestResponse.body.data.accepted).toBe(true);
+    expect(sentEmails).toHaveLength(1);
+    expect(sentEmails[0]).toMatchObject({
+      subject: "Your Abacus sign-in link",
+      to: "magic.user@example.com",
+    });
+
+    const magicLinkEmail = sentEmails[0];
+    expect(magicLinkEmail).toBeDefined();
+
+    const magicToken = getTokenFromEmail(magicLinkEmail!);
+    const consumeResponse = await request(app.server).post("/auth/magic-link/consume").send({
+      token: magicToken,
+    });
+
+    expect(consumeResponse.status).toBe(200);
+    expect(consumeResponse.body.data.user.email).toBe("magic.user@example.com");
+    expect(consumeResponse.body.data.tokens.accessToken).toEqual(expect.any(String));
+    expect(getCookieHeader(consumeResponse)).toContain("abacus_refresh_token=");
+  });
+
+  it("allows authenticated users to request another verification email", async () => {
+    const registerResponse = await request(app.server).post("/auth/register").send({
+      email: "resend.verify@example.com",
+      name: "Resend Verify",
+      password: "password123",
+    });
+    const accessToken = registerResponse.body.data.tokens.accessToken as string;
+
+    sentEmails.length = 0;
+
+    const response = await request(app.server)
+      .post("/auth/email-verification/request")
+      .set("Authorization", `Bearer ${accessToken}`);
+
+    expect(response.status).toBe(200);
+    expect(response.body.data.accepted).toBe(true);
+    expect(sentEmails).toHaveLength(1);
+    expect(sentEmails[0]?.to).toBe("resend.verify@example.com");
   });
 
   it("logs out by revoking the refresh token", async () => {
@@ -783,6 +953,7 @@ describe("identity-service T-021 auth routes", () => {
 
 describe("identity-service T-022 membership lifecycle and roles", () => {
   let app: ReturnType<typeof buildIdentityServiceApp>;
+  let sentEmails: SentEmail[];
   let state: TestState;
   let ownerUser: User;
   let adminUser: User;
@@ -793,6 +964,7 @@ describe("identity-service T-022 membership lifecycle and roles", () => {
   let declinedOrganization: Organization;
 
   beforeEach(async () => {
+    sentEmails = [];
     ownerUser = createUser({
       email: "owner@example.com",
       id: randomUUID(),
@@ -832,6 +1004,7 @@ describe("identity-service T-022 membership lifecycle and roles", () => {
     });
 
     state = {
+      emailTokens: new Map(),
       memberships: new Map([
         [
           createMembershipKey(ownerUser.id, primaryOrganization.id),
@@ -892,6 +1065,7 @@ describe("identity-service T-022 membership lifecycle and roles", () => {
     };
 
     app = buildIdentityServiceApp({
+      emailSender: createEmailSender(sentEmails),
       jwtSecret: JWT_SECRET,
       passwordHasher: testPasswordHasher,
       refreshTokenStore: createInMemoryRefreshTokenStore(),

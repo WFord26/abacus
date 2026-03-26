@@ -1,3 +1,5 @@
+import { createHash, randomBytes } from "node:crypto";
+
 import type { PrismaClient } from "@prisma/client";
 import type {
   MembershipStatus,
@@ -34,8 +36,30 @@ export type CreatePendingMembershipInput = {
   role: Role;
 };
 
+export type IdentityEmailTokenType = "magic_link" | "verification";
+
+export type IdentityEmailTokenRecord = {
+  consumedAt: string | null;
+  createdAt: string;
+  email: string;
+  expiresAt: string;
+  id: string;
+  type: IdentityEmailTokenType;
+  userId: string | null;
+};
+
+export type CreateEmailTokenInput = {
+  email: string;
+  expiresAt: Date;
+  type: IdentityEmailTokenType;
+  userId?: string | null;
+};
+
 export type IdentityRepository = {
   countRegisteredUsers(): Promise<number>;
+  createEmailToken(
+    input: CreateEmailTokenInput
+  ): Promise<{ token: string; tokenRecord: IdentityEmailTokenRecord }>;
   createUser(input: {
     email: string;
     emailVerified?: boolean;
@@ -46,6 +70,10 @@ export type IdentityRepository = {
     input: CreateOrganizationInput
   ): Promise<{ membership: IdentityMembershipRecord; organization: Organization }>;
   createPendingMembership(input: CreatePendingMembershipInput): Promise<IdentityMembershipRecord>;
+  consumeEmailToken(
+    type: IdentityEmailTokenType,
+    token: string
+  ): Promise<IdentityEmailTokenRecord | null>;
   deleteMembership(organizationId: string, userId: string): Promise<void>;
   findMembershipByUserIdAndOrganizationId(
     userId: string,
@@ -191,6 +219,30 @@ function toMembershipWithOrganizationRecord(membership: {
   };
 }
 
+function hashEmailToken(token: string) {
+  return createHash("sha256").update(token).digest("hex");
+}
+
+function toEmailTokenRecord(emailToken: {
+  consumedAt: Date | null;
+  createdAt: Date;
+  email: string;
+  expiresAt: Date;
+  id: string;
+  type: string;
+  userId: string | null;
+}): IdentityEmailTokenRecord {
+  return {
+    consumedAt: emailToken.consumedAt?.toISOString() ?? null,
+    createdAt: emailToken.createdAt.toISOString(),
+    email: emailToken.email,
+    expiresAt: emailToken.expiresAt.toISOString(),
+    id: emailToken.id,
+    type: emailToken.type as IdentityEmailTokenType,
+    userId: emailToken.userId,
+  };
+}
+
 export function createPrismaIdentityRepository(db: PrismaClient): IdentityRepository {
   return {
     async countRegisteredUsers() {
@@ -201,6 +253,25 @@ export function createPrismaIdentityRepository(db: PrismaClient): IdentityReposi
           },
         },
       });
+    },
+
+    async createEmailToken(input) {
+      const token = randomBytes(24).toString("hex");
+      const tokenHash = hashEmailToken(token);
+      const emailToken = await db.emailToken.create({
+        data: {
+          email: input.email,
+          expiresAt: input.expiresAt,
+          tokenHash,
+          type: input.type,
+          ...(input.userId !== undefined ? { userId: input.userId } : {}),
+        },
+      });
+
+      return {
+        token,
+        tokenRecord: toEmailTokenRecord(emailToken),
+      };
     },
 
     async createUser(input) {
@@ -278,6 +349,37 @@ export function createPrismaIdentityRepository(db: PrismaClient): IdentityReposi
       });
 
       return toMembershipRecord(membership);
+    },
+
+    async consumeEmailToken(type, token) {
+      const now = new Date();
+      const tokenHash = hashEmailToken(token);
+
+      const emailToken = await db.emailToken.findFirst({
+        where: {
+          consumedAt: null,
+          expiresAt: {
+            gt: now,
+          },
+          tokenHash,
+          type,
+        },
+      });
+
+      if (!emailToken) {
+        return null;
+      }
+
+      const consumedToken = await db.emailToken.update({
+        where: {
+          id: emailToken.id,
+        },
+        data: {
+          consumedAt: now,
+        },
+      });
+
+      return toEmailTokenRecord(consumedToken);
     },
 
     async deleteMembership(organizationId, userId) {

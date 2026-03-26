@@ -45,6 +45,8 @@ model Transaction {
   description    String?
   merchantRaw    String?             @map("merchant_raw")
   categoryId     String?             @map("category_id") @db.Uuid
+  sourceType     String?             @map("source_type")
+  sourceId       String?             @map("source_id")
   reviewStatus   String              @default("unreviewed") @map("review_status")
   importBatchId  String?             @map("import_batch_id") @db.Uuid
   isSplit        Boolean             @default(false) @map("is_split")
@@ -57,6 +59,7 @@ model Transaction {
   lines          TransactionLine[]
 
   @@map("transactions")
+  @@unique([organizationId, sourceType, sourceId], map: "transactions_org_source_key")
 }
 
 model TransactionLine {

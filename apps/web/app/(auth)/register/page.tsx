@@ -29,7 +29,10 @@ export default function RegisterPage() {
   const router = useRouter();
   const [shouldRouteToSetup, setShouldRouteToSetup] = useState(false);
   const [form, setForm] = useState({
-    email: "",
+    email:
+      typeof window === "undefined"
+        ? ""
+        : (new URLSearchParams(window.location.search).get("email") ?? ""),
     name: "",
     password: "",
   });

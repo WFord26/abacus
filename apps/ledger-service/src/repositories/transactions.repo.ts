@@ -27,6 +27,8 @@ type ListedTransactions = {
 
 type TransactionRepositoryRecord = TransactionRecord & {
   isActive: boolean;
+  sourceId: string | null;
+  sourceType: string | null;
 };
 
 export type TransactionDuplicateCandidate = {
@@ -46,7 +48,15 @@ export type LedgerTransactionRepository = {
     importBatchId?: string | null;
     merchantRaw?: string | null;
     organizationId: string;
+    reviewStatus?: ReviewStatus;
+    sourceId?: string | null;
+    sourceType?: string | null;
   }): Promise<Transaction>;
+  findTransactionBySourceReference(input: {
+    organizationId: string;
+    sourceId: string;
+    sourceType: string;
+  }): Promise<Transaction | null>;
   findTransactionsByDuplicateCandidates(input: {
     accountId: string;
     candidates: TransactionDuplicateCandidate[];
@@ -94,6 +104,8 @@ function toTransactionRecord(transaction: {
   merchantRaw: string | null;
   organizationId: string;
   reviewStatus: string;
+  sourceId: string | null;
+  sourceType: string | null;
   updatedAt: Date;
 }): TransactionRepositoryRecord {
   return {
@@ -111,26 +123,30 @@ function toTransactionRecord(transaction: {
     merchantRaw: transaction.merchantRaw ?? null,
     organizationId: transaction.organizationId,
     reviewStatus: transaction.reviewStatus as Transaction["reviewStatus"],
+    sourceId: transaction.sourceId ?? null,
+    sourceType: transaction.sourceType ?? null,
     updatedAt: transaction.updatedAt.toISOString(),
   };
 }
 
 function toListedTransaction(transaction: TransactionRepositoryRecord): Transaction {
+  const { sourceId: _sourceId, sourceType: _sourceType, ...rest } = transaction;
+
   return {
-    accountId: transaction.accountId,
-    amount: transaction.amount,
-    categoryId: transaction.categoryId,
-    createdAt: transaction.createdAt,
-    createdBy: transaction.createdBy,
-    date: transaction.date,
-    description: transaction.description,
-    id: transaction.id,
-    importBatchId: transaction.importBatchId,
-    isSplit: transaction.isSplit,
-    merchantRaw: transaction.merchantRaw,
-    organizationId: transaction.organizationId,
-    reviewStatus: transaction.reviewStatus,
-    updatedAt: transaction.updatedAt,
+    accountId: rest.accountId,
+    amount: rest.amount,
+    categoryId: rest.categoryId,
+    createdAt: rest.createdAt,
+    createdBy: rest.createdBy,
+    date: rest.date,
+    description: rest.description,
+    id: rest.id,
+    importBatchId: rest.importBatchId,
+    isSplit: rest.isSplit,
+    merchantRaw: rest.merchantRaw,
+    organizationId: rest.organizationId,
+    reviewStatus: rest.reviewStatus,
+    updatedAt: rest.updatedAt,
   };
 }
 
@@ -204,12 +220,28 @@ export function createPrismaLedgerTransactionRepository(
         ...(input.description !== undefined ? { description: input.description } : {}),
         ...(input.importBatchId !== undefined ? { importBatchId: input.importBatchId } : {}),
         ...(input.merchantRaw !== undefined ? { merchantRaw: input.merchantRaw } : {}),
+        ...(input.reviewStatus !== undefined ? { reviewStatus: input.reviewStatus } : {}),
+        ...(input.sourceId !== undefined ? { sourceId: input.sourceId } : {}),
+        ...(input.sourceType !== undefined ? { sourceType: input.sourceType } : {}),
       };
       const transaction = await db.transaction.create({
         data,
       });
 
       return toListedTransaction(toTransactionRecord(transaction));
+    },
+
+    async findTransactionBySourceReference({ organizationId, sourceId, sourceType }) {
+      const transaction = await db.transaction.findFirst({
+        where: {
+          isActive: true,
+          organizationId,
+          sourceId,
+          sourceType,
+        },
+      });
+
+      return transaction ? toListedTransaction(toTransactionRecord(transaction)) : null;
     },
 
     async findTransactionsByDuplicateCandidates({ accountId, candidates, organizationId }) {

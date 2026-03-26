@@ -1,5 +1,6 @@
 import { IdentityServiceError } from "../lib/errors";
 
+import type { IdentityEmailSender } from "../lib/email";
 import type { IdentityMembershipRecord, IdentityRepository } from "../repositories/identity.repo";
 import type { MembershipWithOrganization, Organization, Role, User } from "@wford26/shared-types";
 
@@ -40,7 +41,23 @@ function slugify(value: string) {
   return slug || "organization";
 }
 
-export function createIdentityService(repository: IdentityRepository) {
+export function createIdentityService(
+  repository: IdentityRepository,
+  options: {
+    appOrigin: string;
+    emailSender: IdentityEmailSender;
+  }
+) {
+  function buildAppUrl(pathname: string, params: Record<string, string>) {
+    const url = new URL(pathname, options.appOrigin);
+
+    Object.entries(params).forEach(([key, value]) => {
+      url.searchParams.set(key, value);
+    });
+
+    return url.toString();
+  }
+
   async function ensureActiveMembership(userId: string, organizationId: string) {
     const membership = await repository.findMembershipByUserIdAndOrganizationId(
       userId,
@@ -249,11 +266,34 @@ export function createIdentityService(repository: IdentityRepository) {
         );
       }
 
-      return repository.createPendingMembership({
+      const membership = await repository.createPendingMembership({
         email: input.email.toLowerCase(),
         organizationId: input.organizationId,
         role: input.role,
       });
+
+      const organization = await repository.findOrganizationById(input.organizationId);
+      const invitedByUser = await repository.findUserById(input.currentUserId);
+
+      if (organization) {
+        const loginUrl = buildAppUrl("/login", {
+          email: membership.user.email,
+          organizationId: organization.id,
+        });
+        const registerUrl = buildAppUrl("/register", {
+          email: membership.user.email,
+          organizationId: organization.id,
+        });
+
+        await options.emailSender.send({
+          html: `<p>You were invited to join ${organization.name} in Abacus as ${input.role}.</p><p>Sign in here: <a href="${loginUrl}">${loginUrl}</a></p><p>Need an account first? Register here: <a href="${registerUrl}">${registerUrl}</a></p><p>${invitedByUser?.name ?? invitedByUser?.email ?? "An administrator"} sent this invite.</p>`,
+          subject: `Invitation to join ${organization.name} on Abacus`,
+          text: `You were invited to join ${organization.name} in Abacus as ${input.role}.\n\nSign in: ${loginUrl}\nRegister: ${registerUrl}\n\n${invitedByUser?.name ?? invitedByUser?.email ?? "An administrator"} sent this invite.`,
+          to: membership.user.email,
+        });
+      }
+
+      return membership;
     },
 
     async listCurrentUserOrganizations(userId: string): Promise<MembershipWithOrganization[]> {
