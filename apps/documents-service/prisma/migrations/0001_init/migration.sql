@@ -18,9 +18,12 @@ CREATE TABLE IF NOT EXISTS documents.documents (
 
 CREATE TABLE IF NOT EXISTS documents.transaction_links (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  document_id UUID REFERENCES documents.documents(id),
+  document_id UUID NOT NULL REFERENCES documents.documents(id) ON DELETE CASCADE,
   transaction_id UUID NOT NULL,
   organization_id UUID NOT NULL,
   linked_by UUID NOT NULL,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS documents_transaction_links_document_tx_key
+  ON documents.transaction_links (document_id, transaction_id);

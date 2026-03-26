@@ -1,11 +1,15 @@
+import type { PaginatedResponse } from "./api";
+
 export type DocumentStatus = "pending" | "uploaded" | "processing" | "ready" | "failed";
+
+export type DocumentContentType = "image/jpeg" | "image/png" | "image/heic" | "application/pdf";
 
 export type Document = {
   id: string;
   organizationId: string;
   uploadedBy: string;
   filename: string;
-  contentType: "image/jpeg" | "image/png" | "image/heic" | "application/pdf";
+  contentType: DocumentContentType;
   sizeBytes?: number | null;
   s3Key: string;
   s3Bucket: string;
@@ -25,7 +29,7 @@ export type TransactionLink = {
 
 export type UploadUrlRequest = {
   filename: string;
-  contentType: Document["contentType"];
+  contentType: DocumentContentType;
   size: number;
 };
 
@@ -34,4 +38,24 @@ export type UploadUrlResponse = {
   uploadUrl: string;
   s3Key: string;
   expiresAt: string;
+};
+
+export type FinalizeDocumentRequest = {
+  documentId: string;
+  s3Key: string;
+};
+
+export type DocumentListItem = Document & {
+  linkedTransactionIds: string[];
+};
+
+export type DocumentWithDownloadUrl = DocumentListItem & {
+  downloadUrl: string;
+  downloadUrlExpiresAt: string;
+};
+
+export type DocumentListResponse = PaginatedResponse<DocumentListItem>;
+
+export type LinkTransactionRequest = {
+  transactionId: string;
 };

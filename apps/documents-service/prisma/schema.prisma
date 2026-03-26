@@ -17,7 +17,7 @@ model Document {
   s3Key           String            @map("s3_key")
   s3Bucket        String            @map("s3_bucket")
   checksum        String?
-  ocrStatus       String            @default("pending") @map("ocr_status")
+  status          String            @default("pending") @map("ocr_status")
   createdAt       DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
   transactionLinks TransactionLink[]
 
@@ -26,12 +26,13 @@ model Document {
 
 model TransactionLink {
   id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  documentId     String?  @map("document_id") @db.Uuid
+  documentId     String   @map("document_id") @db.Uuid
   transactionId  String   @map("transaction_id") @db.Uuid
   organizationId String   @map("organization_id") @db.Uuid
   linkedBy       String   @map("linked_by") @db.Uuid
   createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  document       Document? @relation(fields: [documentId], references: [id])
+  document       Document @relation(fields: [documentId], references: [id])
 
+  @@unique([documentId, transactionId])
   @@map("transaction_links")
 }

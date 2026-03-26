@@ -1174,9 +1174,9 @@ Use this checklist to track implementation progress across the architecture plan
 
 #### Expenses & Documents
 
-- [ ] T-080 — Documents Service — Upload Pipeline
-- [ ] T-081 — Documents Service — Transaction Linking
-- [ ] T-082 — Web — Receipt Upload UI
+- [x] T-080 — Documents Service — Upload Pipeline
+- [x] T-081 — Documents Service — Transaction Linking
+- [x] T-082 — Web — Receipt Upload UI
 - [ ] T-090 — Web — Dashboard Summary Cards
 - [ ] T-091 — Web — CSV Import UI
 

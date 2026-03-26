@@ -22,6 +22,9 @@ Versioning: CalVer YYYY.MM.DD
 - T-060: Web accounts settings page with live balance loading, optimistic create/delete mutations, modal editing, and delete failure toasts.
 - T-061: Web categories settings page with nested tree controls, a constrained 12-color palette, expand-collapse branches, and delete conflict toasts.
 - T-062: Web transactions workspace with URL-backed filters, a virtualized TanStack table, inline category and review controls, bulk categorize, manual entry, and CSV import summaries.
+- T-080: Documents service upload pipeline with presigned S3-compatible URLs, pending-to-finalized metadata persistence, signed downloads, delete cleanup, and `receipt.uploaded` events.
+- T-081: Documents service transaction-linking routes with org-aware ledger validation and signed document retrieval by transaction.
+- T-082: Web receipts workspace with thumbnail previews, unlinked filtering, XHR upload progress, mobile capture support, and transaction-row receipt attachment.
 - Identity bootstrap: one-time first-admin setup endpoints for fresh environments via `/api/v1/auth/bootstrap-status` and `/api/v1/auth/bootstrap-admin`.
 
 ### Changed

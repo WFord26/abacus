@@ -38,6 +38,10 @@ import { useEffect, useMemo, useState } from "react";
 
 import { useAuth } from "../../contexts/auth-context";
 import { ApiClientError, apiClient } from "../../lib/api-client";
+import {
+  ReceiptUploadModal,
+  type ReceiptUploadModalTransaction,
+} from "../documents/receipt-upload-modal";
 
 import { ImportTransactionsModal } from "./import-transactions-modal";
 import { TransactionForm } from "./transaction-form";
@@ -283,6 +287,7 @@ export function TransactionsPage() {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [deleteTransactionId, setDeleteTransactionId] = useState<string | null>(null);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [receiptTarget, setReceiptTarget] = useState<ReceiptUploadModalTransaction | null>(null);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const [toast, setToast] = useState<ToastState | null>(null);
   const [recentCategoryIds, setRecentCategoryIds] = useState<string[]>([]);
@@ -1022,6 +1027,15 @@ export function TransactionsPage() {
               sorting={sorting}
               transactions={transactionRows}
               onAssignCategory={handleAssignCategory}
+              onAttachReceipt={(transaction) =>
+                setReceiptTarget({
+                  amount: transaction.amount,
+                  date: transaction.date,
+                  description: transaction.description,
+                  id: transaction.id,
+                  merchantRaw: transaction.merchantRaw,
+                })
+              }
               onDelete={(transactionId) => setDeleteTransactionId(transactionId)}
               onReviewStatusChange={handleReviewStatusChange}
               onRowSelectionChange={setRowSelection}
@@ -1204,6 +1218,17 @@ export function TransactionsPage() {
         isOpen={importDialogOpen}
         onImport={(input) => importMutation.mutateAsync(input)}
         onOpenChange={setImportDialogOpen}
+      />
+
+      <ReceiptUploadModal
+        canLinkTransactions={canManageTransactions}
+        initialTransaction={receiptTarget}
+        isOpen={Boolean(receiptTarget)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setReceiptTarget(null);
+          }
+        }}
       />
 
       {toast ? (

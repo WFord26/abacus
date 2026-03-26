@@ -1574,35 +1574,89 @@ Return a single import batch with row-level import results.
 
 **Public base**: `/api/v1`
 
-#### GET /api/v1/documents/upload-url
+#### POST /api/v1/documents/upload-url
 
-Generate a pre-signed URL for uploading a document.
+Create a pending document record and return a presigned PUT URL for direct upload to S3/R2.
 
 **Authentication**: Required
 
-**Query Parameters**:
+**Request**:
 
-- `fileName` (required): Name of the file to upload
-- `contentType` (required): MIME type (e.g., 'application/pdf')
-- `documentType` (optional): Category of document ('receipt', 'invoice', 'statement', 'other')
+```typescript
+{
+  filename: string;
+  contentType: "image/jpeg" | "image/png" | "image/heic" | "application/pdf";
+  size: number; // bytes, max 25MB
+}
+```
 
 **Response: 200 OK**:
 
 ```typescript
 {
   data: {
-    uploadUrl: string (SAS URL with 15-minute expiration)
     documentId: string (UUID)
-    blobKey: string
-    expiresIn: number (seconds, typically 900)
+    uploadUrl: string
+    s3Key: string
+    expiresAt: string (ISO 8601)
   }
 }
 ```
 
 **Error Responses**:
 
-- `400 Bad Request`: Missing or invalid fileName/contentType
+- `400 Bad Request`: Invalid filename, unsupported content type, or file larger than 25MB
 - `401 Unauthorized`: Missing or invalid token
+
+---
+
+#### POST /api/v1/documents
+
+Finalize an uploaded document after the client has successfully PUT the file to object storage.
+
+**Authentication**: Required
+
+**Request**:
+
+```typescript
+{
+  documentId: string(UUID);
+  s3Key: string;
+}
+```
+
+**Response: 201 Created**:
+
+```typescript
+{
+  data: {
+    id: string (UUID)
+    organizationId: string (UUID)
+    uploadedBy: string (UUID)
+    filename: string
+    contentType: 'image/jpeg' | 'image/png' | 'image/heic' | 'application/pdf'
+    sizeBytes: number | null
+    s3Key: string
+    s3Bucket: string
+    checksum: string | null
+    status: 'pending' | 'uploaded' | 'processing' | 'ready' | 'failed'
+    createdAt: string (ISO 8601)
+    linkedTransactionIds: string[]
+  }
+}
+```
+
+**Error Responses**:
+
+- `400 Bad Request`: Storage object not found, content-type mismatch, or unsupported uploaded file type
+- `401 Unauthorized`: Missing or invalid token
+- `404 Not Found`: Pending document record does not exist in the caller's organization
+- `409 Conflict`: Document was already finalized
+
+**Notes**:
+
+- Finalize re-validates the file type from object storage, not just the original upload-url request
+- Publishing `receipt.uploaded` happens on successful finalize
 
 ---
 
@@ -1614,28 +1668,43 @@ List all documents for the authenticated organization.
 
 **Query Parameters**:
 
-- `limit` (optional): Number of results (default: 50, max: 500)
-- `offset` (optional): Pagination offset (default: 0)
-- `documentType` (optional): Filter by type ('receipt', 'invoice', 'statement', 'other')
+- `page` (optional): 1-based page number (default: `1`)
+- `limit` (optional): Number of results per page (default: `50`, max: `100`)
 
 **Response: 200 OK**:
 
 ```typescript
 {
-  data: Document[],
-  pagination: {
-    total: number
-    limit: number
-    offset: number
+  data: {
+    data: Array<{
+      id: string (UUID)
+      organizationId: string (UUID)
+      uploadedBy: string (UUID)
+      filename: string
+      contentType: 'image/jpeg' | 'image/png' | 'image/heic' | 'application/pdf'
+      sizeBytes: number | null
+      s3Key: string
+      s3Bucket: string
+      checksum: string | null
+      status: 'pending' | 'uploaded' | 'processing' | 'ready' | 'failed'
+      createdAt: string (ISO 8601)
+      linkedTransactionIds: string[]
+    }>
+    meta: {
+      total: number
+      page: number
+      limit: number
+      hasMore: boolean
+    }
   }
 }
 ```
 
 ---
 
-#### GET /api/v1/documents/:documentId/download-url
+#### GET /api/v1/documents/:documentId
 
-Generate a pre-signed download URL for a document.
+Return document metadata plus a fresh signed GET URL.
 
 **Authentication**: Required
 
@@ -1648,8 +1717,20 @@ Generate a pre-signed download URL for a document.
 ```typescript
 {
   data: {
-    downloadUrl: string (SAS URL with 5-minute expiration)
-    expiresIn: number (seconds, typically 300)
+    id: string (UUID)
+    organizationId: string (UUID)
+    uploadedBy: string (UUID)
+    filename: string
+    contentType: 'image/jpeg' | 'image/png' | 'image/heic' | 'application/pdf'
+    sizeBytes: number | null
+    s3Key: string
+    s3Bucket: string
+    checksum: string | null
+    status: 'pending' | 'uploaded' | 'processing' | 'ready' | 'failed'
+    createdAt: string (ISO 8601)
+    linkedTransactionIds: string[]
+    downloadUrl: string
+    downloadUrlExpiresAt: string (ISO 8601)
   }
 }
 ```
@@ -1658,7 +1739,138 @@ Generate a pre-signed download URL for a document.
 
 - `401 Unauthorized`: Missing or invalid token
 - `404 Not Found`: Document does not exist
-- `403 Forbidden`: Document belongs to a different organization
+
+---
+
+#### DELETE /api/v1/documents/:documentId
+
+Delete the document from both object storage and the documents database.
+
+**Authentication**: Required
+
+**Authorization**: `owner`, `admin`, or `accountant`
+
+**Response: 200 OK**:
+
+```typescript
+{
+  data: {
+    deleted: true;
+  }
+}
+```
+
+**Error Responses**:
+
+- `401 Unauthorized`: Missing or invalid token
+- `403 Forbidden`: Caller lacks a mutation-capable role
+- `404 Not Found`: Document does not exist in the caller's organization
+
+---
+
+#### POST /api/v1/documents/:documentId/link-transaction
+
+Link a document to a ledger transaction.
+
+**Authentication**: Required
+
+**Authorization**: `owner`, `admin`, or `accountant`
+
+**Request**:
+
+```typescript
+{
+  transactionId: string(UUID);
+}
+```
+
+**Response: 201 Created**:
+
+```typescript
+{
+  data: {
+    id: string (UUID)
+    documentId: string (UUID)
+    transactionId: string (UUID)
+    organizationId: string (UUID)
+    linkedBy: string (UUID)
+    createdAt: string (ISO 8601)
+  }
+}
+```
+
+**Error Responses**:
+
+- `401 Unauthorized`: Missing or invalid token
+- `403 Forbidden`: Caller lacks a mutation-capable role or tries to link across orgs
+- `404 Not Found`: Document or transaction does not exist
+
+---
+
+#### DELETE /api/v1/documents/:documentId/link-transaction/:transactionId
+
+Remove an existing document-to-transaction link.
+
+**Authentication**: Required
+
+**Authorization**: `owner`, `admin`, or `accountant`
+
+**Response: 200 OK**:
+
+```typescript
+{
+  data: {
+    deleted: true;
+  }
+}
+```
+
+**Error Responses**:
+
+- `401 Unauthorized`: Missing or invalid token
+- `403 Forbidden`: Caller lacks a mutation-capable role or tries to unlink across orgs
+- `404 Not Found`: Document, transaction, or link does not exist
+
+---
+
+#### GET /api/v1/documents/by-transaction/:transactionId
+
+Return all documents linked to a transaction, each with a fresh signed download URL.
+
+**Authentication**: Required
+
+**Path Parameters**:
+
+- `transactionId` (required): UUID of the transaction
+
+**Response: 200 OK**:
+
+```typescript
+{
+  data: Array<{
+    id: string (UUID)
+    organizationId: string (UUID)
+    uploadedBy: string (UUID)
+    filename: string
+    contentType: 'image/jpeg' | 'image/png' | 'image/heic' | 'application/pdf'
+    sizeBytes: number | null
+    s3Key: string
+    s3Bucket: string
+    checksum: string | null
+    status: 'pending' | 'uploaded' | 'processing' | 'ready' | 'failed'
+    createdAt: string (ISO 8601)
+    linkedTransactionIds: string[]
+    downloadUrl: string
+    downloadUrlExpiresAt: string (ISO 8601)
+  }>
+}
+```
+
+**Error Responses**:
+
+- `401 Unauthorized`: Missing or invalid token
+- `403 Forbidden`: Transaction exists but belongs to a different organization
+- `404 Not Found`: Transaction does not exist
 
 ---
 

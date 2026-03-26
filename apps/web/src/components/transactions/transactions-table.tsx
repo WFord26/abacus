@@ -115,6 +115,7 @@ export function TransactionsTable({
   categories,
   isLoading,
   onAssignCategory,
+  onAttachReceipt,
   onDelete,
   onReviewStatusChange,
   rowSelection,
@@ -127,6 +128,7 @@ export function TransactionsTable({
   categories: TransactionTableCategoryOption[];
   isLoading: boolean;
   onAssignCategory: (transactionId: string, categoryId: string | null) => Promise<void> | void;
+  onAttachReceipt?: (transaction: TransactionTableRow) => void;
   onDelete: (transactionId: string) => void;
   onReviewStatusChange: (transactionId: string, status: ReviewStatus) => Promise<void> | void;
   rowSelection: RowSelectionState;
@@ -272,6 +274,11 @@ export function TransactionsTable({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
+                {onAttachReceipt ? (
+                  <DropdownMenuItem onClick={() => onAttachReceipt(row.original)}>
+                    Attach receipt
+                  </DropdownMenuItem>
+                ) : null}
                 <DropdownMenuItem
                   onClick={() => void onReviewStatusChange(row.original.id, "reviewed")}
                 >
@@ -303,7 +310,14 @@ export function TransactionsTable({
         id: "actions",
       },
     ],
-    [canManageTransactions, categories, onAssignCategory, onDelete, onReviewStatusChange]
+    [
+      canManageTransactions,
+      categories,
+      onAssignCategory,
+      onAttachReceipt,
+      onDelete,
+      onReviewStatusChange,
+    ]
   );
 
   const table = useReactTable({
