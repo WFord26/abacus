@@ -506,6 +506,23 @@ function createTransactionRepository(state: RepoState): LedgerTransactionReposit
       adjustCategoryStats(transaction.categoryId ?? null, -1);
     },
 
+    async updateTransactionReviewStatus(transactionId, organizationId, reviewStatus) {
+      const transaction = state.transactions.get(transactionId);
+
+      if (!transaction || transaction.organizationId !== organizationId || !transaction.isActive) {
+        throw new Error("Transaction not found");
+      }
+
+      const updated = {
+        ...transaction,
+        reviewStatus,
+        updatedAt: new Date().toISOString(),
+      };
+
+      state.transactions.set(transactionId, updated);
+      return toTransaction(updated);
+    },
+
     async updateTransaction(transactionId, organizationId, input) {
       const transaction = state.transactions.get(transactionId);
 
@@ -1767,5 +1784,184 @@ describe("ledger-service T-053 CSV import pipeline", () => {
     expect(response.status).toBe(400);
     expect(response.body.error.code).toBe("INVALID_CSV_FORMAT");
     expect(state.importBatches.size).toBe(0);
+  });
+});
+
+describe("ledger-service T-054 transaction review states", () => {
+  let app: ReturnType<typeof buildLedgerServiceApp>;
+  let state: RepoState;
+  let organizationId: string;
+
+  beforeEach(async () => {
+    organizationId = randomUUID();
+    state = {
+      accounts: new Map(),
+      categories: new Map(),
+      categoryAssignmentCounts: new Map(),
+      importBatches: new Map(),
+      publishedEvents: [],
+      transactionCounts: new Map(),
+      transactionSums: new Map(),
+      transactions: new Map(),
+    };
+
+    app = buildLedgerServiceApp({
+      accountRepository: createRepository(state),
+      categoryRepository: createCategoryRepository(state),
+      eventPublisher: createEventPublisher(state),
+      importBatchRepository: createImportBatchRepository(state),
+      jwtSecret: JWT_SECRET,
+      transactionRepository: createTransactionRepository(state),
+    });
+
+    await app.ready();
+  });
+
+  afterEach(async () => {
+    await app.close();
+  });
+
+  it("updates review status, bumps updatedAt, and publishes transaction.updated", async () => {
+    const account = createAccountRecord({
+      name: "Checking",
+      organizationId,
+      type: "cash",
+    });
+    const transaction = createTransactionRecord({
+      accountId: account.id,
+      amount: 48,
+      createdAt: "2026-03-10T10:00:00.000Z",
+      createdBy: randomUUID(),
+      date: "2026-03-10",
+      description: "Pending review",
+      organizationId,
+      reviewStatus: "unreviewed",
+      updatedAt: "2026-03-10T10:00:00.000Z",
+    });
+    const userId = randomUUID();
+    const token = signToken(
+      {
+        email: "admin@example.com",
+        organizationId,
+        role: "admin",
+        userId,
+      },
+      JWT_SECRET,
+      "15m"
+    );
+
+    state.accounts.set(account.id, account);
+    state.transactions.set(transaction.id, transaction);
+
+    const response = await request(app.server)
+      .post(`/transactions/${transaction.id}/review`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        status: "reviewed",
+      });
+
+    expect(response.status).toBe(200);
+    expect(response.body.data.reviewStatus).toBe("reviewed");
+    expect(new Date(response.body.data.updatedAt).getTime()).toBeGreaterThan(
+      new Date(transaction.updatedAt).getTime()
+    );
+    expect(state.transactions.get(transaction.id)?.reviewStatus).toBe("reviewed");
+    expect(state.publishedEvents.at(-1)).toMatchObject({
+      eventType: "transaction.updated",
+      organizationId,
+      payload: {
+        transactionId: transaction.id,
+        changes: {
+          reviewStatus: "reviewed",
+        },
+      },
+      userId,
+      version: "1.0",
+    });
+  });
+
+  it("blocks viewer review mutations", async () => {
+    const account = createAccountRecord({
+      name: "Checking",
+      organizationId,
+      type: "cash",
+    });
+    const transaction = createTransactionRecord({
+      accountId: account.id,
+      amount: 15,
+      createdBy: randomUUID(),
+      date: "2026-03-11",
+      description: "Viewer blocked",
+      organizationId,
+    });
+    const token = createAccessToken(organizationId, "viewer");
+
+    state.accounts.set(account.id, account);
+    state.transactions.set(transaction.id, transaction);
+
+    const response = await request(app.server)
+      .post(`/transactions/${transaction.id}/review`)
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        status: "flagged",
+      });
+
+    expect(response.status).toBe(403);
+    expect(state.transactions.get(transaction.id)?.reviewStatus).toBe("unreviewed");
+  });
+
+  it("returns only unreviewed transactions in the review queue with a limit of 100", async () => {
+    const account = createAccountRecord({
+      name: "Checking",
+      organizationId,
+      type: "cash",
+    });
+    const reviewedTransaction = createTransactionRecord({
+      accountId: account.id,
+      amount: 999,
+      createdAt: "2026-02-01T00:00:00.000Z",
+      createdBy: randomUUID(),
+      date: "2026-02-01",
+      description: "Already reviewed",
+      organizationId,
+      reviewStatus: "reviewed",
+    });
+    const token = createAccessToken(organizationId, "viewer");
+
+    state.accounts.set(account.id, account);
+    state.transactions.set(reviewedTransaction.id, reviewedTransaction);
+
+    for (let index = 0; index < 101; index += 1) {
+      const day = String((index % 28) + 1).padStart(2, "0");
+      const transaction = createTransactionRecord({
+        accountId: account.id,
+        amount: index + 1,
+        createdAt: `2026-03-${day}T${String(index % 24).padStart(2, "0")}:00:00.000Z`,
+        createdBy: randomUUID(),
+        date: `2026-03-${day}`,
+        description: `Queue ${index}`,
+        organizationId,
+        reviewStatus: "unreviewed",
+      });
+
+      state.transactions.set(transaction.id, transaction);
+    }
+
+    const response = await request(app.server)
+      .get("/transactions/review-queue")
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(response.status).toBe(200);
+    expect(response.body.data.meta.limit).toBe(100);
+    expect(response.body.data.meta.page).toBe(1);
+    expect(response.body.data.meta.total).toBe(101);
+    expect(response.body.data.meta.hasMore).toBe(true);
+    expect(response.body.data.data).toHaveLength(100);
+    expect(
+      response.body.data.data.every(
+        (transaction: Transaction) => transaction.reviewStatus === "unreviewed"
+      )
+    ).toBe(true);
+    expect(response.body.data.data[0].date >= response.body.data.data[1].date).toBe(true);
   });
 });

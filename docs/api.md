@@ -1265,6 +1265,34 @@ Return a single transaction by id.
 
 ---
 
+#### GET /api/v1/transactions/review-queue
+
+Return the first 100 unreviewed transactions, sorted by date descending.
+
+**Authentication**: Required
+
+**Response: 200 OK**:
+
+```typescript
+{
+  data: {
+    data: Transaction[],
+    meta: {
+      total: number
+      page: 1
+      limit: 100
+      hasMore: boolean
+    }
+  }
+}
+```
+
+**Error Responses**:
+
+- `401 Unauthorized`: Missing or invalid token
+
+---
+
 #### PATCH /api/v1/transactions/:transactionId
 
 Update editable transaction details.
@@ -1319,6 +1347,58 @@ Update editable transaction details.
 - `403 Forbidden`: Caller lacks a mutation-capable role
 - `404 Not Found`: Transaction does not exist
 - `404 Not Found`: Referenced category does not exist in the caller's organization
+
+---
+
+#### POST /api/v1/transactions/:transactionId/review
+
+Update a transaction's review status.
+
+**Authentication**: Required
+
+**Authorization**: `owner`, `admin`, or `accountant`
+
+**Path Parameters**:
+
+- `transactionId` (required): UUID of the transaction
+
+**Request**:
+
+```typescript
+{
+  status: "unreviewed" | "reviewed" | "flagged";
+}
+```
+
+**Response: 200 OK**:
+
+```typescript
+{
+  data: {
+    id: string (UUID)
+    organizationId: string (UUID)
+    accountId: string (UUID)
+    date: string (YYYY-MM-DD)
+    amount: number
+    description: string | null
+    merchantRaw: string | null
+    categoryId: string (UUID) | null
+    reviewStatus: 'unreviewed' | 'reviewed' | 'flagged'
+    importBatchId: string (UUID) | null
+    isSplit: boolean
+    createdBy: string (UUID)
+    createdAt: string (ISO 8601)
+    updatedAt: string (ISO 8601)
+  }
+}
+```
+
+**Error Responses**:
+
+- `400 Bad Request`: Validation error
+- `401 Unauthorized`: Missing or invalid token
+- `403 Forbidden`: Caller lacks a mutation-capable role
+- `404 Not Found`: Transaction does not exist
 
 ---
 

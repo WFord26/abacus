@@ -7,6 +7,7 @@ import { importTransactionsCsvFieldsSchema } from "../../schemas/import-batches.
 import {
   createTransactionBodySchema,
   listTransactionsQuerySchema,
+  reviewTransactionBodySchema,
   transactionParamsSchema,
   updateTransactionBodySchema,
 } from "../../schemas/transactions.schema";
@@ -87,6 +88,16 @@ const transactionsRoutes: FastifyPluginAsync<TransactionsRoutesOptions> = async 
     return success(transactions);
   });
 
+  fastify.get("/transactions/review-queue", async (request) => {
+    const transactions = await options.service.listTransactions(request.user!.organizationId, {
+      limit: 100,
+      page: 1,
+      status: "unreviewed",
+    });
+
+    return success(transactions);
+  });
+
   fastify.post(
     "/transactions/import/csv",
     {
@@ -139,6 +150,25 @@ const transactionsRoutes: FastifyPluginAsync<TransactionsRoutesOptions> = async 
 
     return success(transaction);
   });
+
+  fastify.post(
+    "/transactions/:transactionId/review",
+    {
+      preHandler: requireRole([...mutateRoles]),
+    },
+    async (request) => {
+      const params = parseSchema(transactionParamsSchema, request.params);
+      const body = parseSchema(reviewTransactionBodySchema, request.body);
+      const transaction = await options.service.reviewTransaction(
+        params.transactionId,
+        request.user!.organizationId,
+        request.user!.userId,
+        body.status
+      );
+
+      return success(transaction);
+    }
+  );
 
   fastify.patch(
     "/transactions/:transactionId",

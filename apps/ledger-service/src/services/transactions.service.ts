@@ -7,6 +7,7 @@ import type { LedgerAccountRepository } from "../repositories/accounts.repo";
 import type { LedgerCategoryRepository } from "../repositories/categories.repo";
 import type { LedgerTransactionRepository } from "../repositories/transactions.repo";
 import type {
+  ReviewStatus,
   Transaction,
   TransactionFilters,
   TransactionListResponse,
@@ -18,6 +19,7 @@ type TransactionMutationInput = {
   date?: string;
   description?: string | null;
   merchantRaw?: string | null;
+  reviewStatus?: ReviewStatus;
 };
 
 export type LedgerTransactionsService = {
@@ -37,6 +39,12 @@ export type LedgerTransactionsService = {
     organizationId: string,
     filters: TransactionFilters
   ): Promise<TransactionListResponse>;
+  reviewTransaction(
+    transactionId: string,
+    organizationId: string,
+    userId: string,
+    reviewStatus: ReviewStatus
+  ): Promise<Transaction>;
   updateTransaction(
     transactionId: string,
     organizationId: string,
@@ -86,6 +94,7 @@ function buildUpdatedEventChanges(
   date: string;
   description: string | null;
   merchantRaw: string | null;
+  reviewStatus: ReviewStatus;
 }> {
   return {
     ...(input.amount !== undefined && input.amount !== original.amount
@@ -100,6 +109,9 @@ function buildUpdatedEventChanges(
       : {}),
     ...(input.merchantRaw !== undefined && input.merchantRaw !== original.merchantRaw
       ? { merchantRaw: input.merchantRaw ?? null }
+      : {}),
+    ...(input.reviewStatus !== undefined && input.reviewStatus !== original.reviewStatus
+      ? { reviewStatus: input.reviewStatus }
       : {}),
   };
 }
@@ -187,6 +199,53 @@ export function createLedgerTransactionsService(
           total: result.total,
         },
       };
+    },
+
+    async reviewTransaction(transactionId, organizationId, userId, reviewStatus) {
+      const original = await transactionRepository.findTransactionById(
+        transactionId,
+        organizationId
+      );
+
+      if (!original || !original.isActive) {
+        throw new LedgerServiceError("NOT_FOUND", "Transaction not found", 404);
+      }
+
+      const transaction = await transactionRepository.updateTransactionReviewStatus(
+        transactionId,
+        organizationId,
+        reviewStatus
+      );
+      const changes = buildUpdatedEventChanges(
+        {
+          accountId: original.accountId,
+          amount: original.amount,
+          categoryId: original.categoryId,
+          createdAt: original.createdAt,
+          createdBy: original.createdBy,
+          date: original.date,
+          description: original.description,
+          id: original.id,
+          importBatchId: original.importBatchId,
+          isSplit: original.isSplit,
+          merchantRaw: original.merchantRaw,
+          organizationId: original.organizationId,
+          reviewStatus: original.reviewStatus,
+          updatedAt: original.updatedAt,
+        },
+        {
+          reviewStatus,
+        }
+      );
+
+      await eventPublisher.publish(
+        createEvent("transaction.updated", organizationId, userId, {
+          changes,
+          transactionId,
+        })
+      );
+
+      return transaction;
     },
 
     async updateTransaction(transactionId, organizationId, userId, input) {

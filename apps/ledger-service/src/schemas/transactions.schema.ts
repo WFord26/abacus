@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-const reviewStatusSchema = z.enum(["unreviewed", "reviewed", "flagged"]);
+export const reviewStatusSchema = z.enum(["unreviewed", "reviewed", "flagged"]);
 
 const transactionDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be YYYY-MM-DD");
 
@@ -22,6 +22,10 @@ export const createTransactionBodySchema = z.object({
   date: transactionDateSchema,
   description: z.string().trim().max(500).nullable().optional(),
   merchantRaw: z.string().trim().max(255).nullable().optional(),
+});
+
+export const reviewTransactionBodySchema = z.object({
+  status: reviewStatusSchema,
 });
 
 export const updateTransactionBodySchema = z

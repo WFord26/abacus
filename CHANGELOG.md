@@ -18,6 +18,8 @@ Versioning: CalVer YYYY.MM.DD
 - T-051: Ledger service category CRUD with one-time default seeding, nested tree responses, parent validation, and delete conflict safeguards.
 - T-052: Ledger service transaction CRUD with paginated filters, soft delete behavior, and Redis-stream event publishing on create and update.
 - T-053: Ledger service CSV import pipeline with multipart upload, bank-format detection, duplicate flagging, and persisted import-batch row results.
+- T-054: Ledger service transaction review workflow with explicit review-status updates, a review queue shortcut, and event emission on status changes.
+- T-060: Web accounts settings page with live balance loading, optimistic create/delete mutations, modal editing, and delete failure toasts.
 - Identity bootstrap: one-time first-admin setup endpoints for fresh environments via `/api/v1/auth/bootstrap-status` and `/api/v1/auth/bootstrap-admin`.
 
 ### Changed

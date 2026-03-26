@@ -1,7 +1,7 @@
 import { Prisma } from "@prisma/client";
 
 import type { PrismaClient } from "@prisma/client";
-import type { Transaction, TransactionFilters } from "@wford26/shared-types";
+import type { ReviewStatus, Transaction, TransactionFilters } from "@wford26/shared-types";
 
 type TransactionRecord = {
   accountId: string;
@@ -61,6 +61,11 @@ export type LedgerTransactionRepository = {
     filters: TransactionFilters
   ): Promise<ListedTransactions>;
   softDeleteTransaction(transactionId: string, organizationId: string): Promise<void>;
+  updateTransactionReviewStatus(
+    transactionId: string,
+    organizationId: string,
+    reviewStatus: ReviewStatus
+  ): Promise<Transaction>;
   updateTransaction(
     transactionId: string,
     organizationId: string,
@@ -280,6 +285,33 @@ export function createPrismaLedgerTransactionRepository(
           organizationId,
         },
       });
+    },
+
+    async updateTransactionReviewStatus(transactionId, organizationId, reviewStatus) {
+      await db.transaction.updateMany({
+        data: {
+          reviewStatus,
+        },
+        where: {
+          id: transactionId,
+          isActive: true,
+          organizationId,
+        },
+      });
+
+      const transaction = await db.transaction.findFirst({
+        where: {
+          id: transactionId,
+          isActive: true,
+          organizationId,
+        },
+      });
+
+      if (!transaction) {
+        throw new Error("Transaction not found after review update");
+      }
+
+      return toListedTransaction(toTransactionRecord(transaction));
     },
 
     async updateTransaction(transactionId, organizationId, input) {
